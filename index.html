@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>자리 경매</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<!-- 글꼴은 화면을 막지 않게 나중에 적용 (학교망에서 글꼴 사이트가 막혀도 바로 뜸) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" media="print" onload="this.media='all'">
 <style>
 :root{
   --bg:#f5f1e8; --card:#ffffff; --ink:#1f2328; --muted:#6b6f76; --line:#e3ddcf;
@@ -1094,7 +1095,7 @@ A.proceed = () => {
   if (!a || a.stage !== 'entry') return;
   const pool = Object.keys(a.entrants || {}).filter(id => (r.students[id]?.stones || 0) > 0 && (!a.deadline || a.entrants[id] <= a.deadline + 1500));
   if (!pool.length){
-    upd({ auction: null, [`seats/${a.seat}/status`]: 'skipped', [`seats/${a.seat}/tries`]: triesOf(r.seats[a.seat]) + 1, [`history/h${Date.now()}`]: { num: r.seats[a.seat].num, skip: true, t: Date.now() } });
+    upd({ auction: null, [`seats/${a.seat}/status`]: 'skipped', [`seats/${a.seat}/tries`]: triesOf(r.seats[a.seat]) + 1, [`history/h${a.startedAt || Date.now()}`]: { num: r.seats[a.seat].num, skip: true, t: Date.now() } });
     return;
   }
   const max = r.meta.maxBidders;
@@ -1154,7 +1155,7 @@ A.reveal = async () => {
   if (d.winner){ patch[`seats/${a.seat}/owner`] = d.winner; patch[`seats/${a.seat}/status`] = 'taken'; }
   else patch[`seats/${a.seat}/status`] = 'failed';
   patch[`seats/${a.seat}/tries`] = triesOf(r.seats[a.seat]) + 1;
-  patch[`history/h${Date.now()}`] = { num: r.seats[a.seat].num, bids, folds, winner: d.winner || '', value: d.value, refund: mode, t: Date.now() };
+  patch[`history/h${a.startedAt || Date.now()}`] = { num: r.seats[a.seat].num, bids, folds, winner: d.winner || '', value: d.value, refund: mode, t: Date.now() };
   upd(patch);
 };
 A.toArrange = async () => {
