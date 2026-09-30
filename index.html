@@ -597,11 +597,9 @@ function revivalBanner(r, { me = null, big = false } = {}){
   const ids = Object.keys(v.ids || {}).sort(byOrder(r));
   const mine = me && v.ids?.[me];
   if (v.type === 'random' && rndRunning()){
-    const names = Object.keys(v.ids || {}).sort(byOrder(r));
     const shuffling = Date.now() - S.rnd.start < RND.SHUFFLE;
     return `<div class="revival still ${big ? 'big' : ''}"><div class="rv-title">${shuffling ? '랜덤 배정 중! 우다다다…' : '뾰로롱! 선점!'}</div>
-      <div>${shuffling ? '남은 자리를 마구 섞는 중이에요' : '한 자리씩 주인이 정해지고 있어요'}</div>
-      <div class="rchips">${names.map(id => `<span class="${shuffling && Math.random() < 0.4 ? 'hot' : ''}">${me && id === me ? '나' : esc(nameOf(r, id))}</span>`).join('')}</div></div>`;
+      <div>${shuffling ? '남은 자리를 마구 섞는 중이에요' : '한 자리씩 주인이 정해지고 있어요'}</div></div>`;
   }
   if (v.type === 'random'){
     if (me) return v.ids?.[me] ? `<div class="revival"><div class="rv-title">랜덤 배정!</div><div>내 자리는 <b>${v.ids[me]}번</b>이에요. 자리 오픈 때까지 비밀!</div></div>` : '';
@@ -611,7 +609,7 @@ function revivalBanner(r, { me = null, big = false } = {}){
     if (me) return '';
     return `<div class="revival ${big ? 'big' : ''}">
       <div class="rv-title">지원금 배부!</div>
-      <div>자비로운 선생님이 자리 없는 친구들에게 코인 <b>+${v.n}개</b>를 주셨습니다. <b>찬양하세요!</b> <span class="small">(최대 ${r.meta.stones}개)</span><br>${ids.map(id => `<b>${esc(nameOf(r, id))}</b>`).join(', ')}</div>
+      <div>자비로운 선생님이 자리 없는 친구들에게 코인 <b>+${v.n}개</b>를 주셨습니다. <b>찬양하세요!</b> <span class="small">(최대 ${r.meta.stones}개)</span></div>
     </div>`;
   }
   return `<div class="revival ${big ? 'big' : ''}">
@@ -1306,7 +1304,7 @@ function renderBoard(){
   } else if (r.phase === 'arrange'){
     const none = seatlessOf(r);
     side = `<div class="stack"><h2>자리 정리</h2><p style="font-size:20px">자리를 여러 개 얻은 친구는<br>앉을 자리와 친구에게 줄 자리를<br><b>선생님께 말해 주세요.</b></p><p class="muted" style="font-size:17px">끝까지 자리가 없는 친구는 남은 자리에 <b>랜덤 배정</b>돼요.<br>모두 정해지면 <b>자리 오픈</b>!</p>
-      ${none.length ? `<div><div class="muted">자리가 없는 친구</div><div class="chips" style="margin-top:8px">${none.map(s => `<span class="pchip">${esc(s.name)}</span>`).join('')}</div></div>` : ''}</div>`;
+</div>`;
   } else side = `<div class="stack" style="text-align:center"><h1 style="font-size:48px">자리 오픈!</h1><p class="muted" style="font-size:22px">내 이름을 찾아 새 자리로 이동하세요.</p></div>`;
 
   // 파산핑: 실시간으로 보여 주면 방금 이긴 사람이 드러나므로, 한 바퀴가 끝날 때 선생님이 공개한 명단만 보여 준다
