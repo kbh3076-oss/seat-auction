@@ -174,6 +174,9 @@ tr.fold td{color:var(--red)}
 .rules.big h2{font-size:32px}
 @media (max-width:860px){.rules.big ol{grid-template-columns:1fr}}
 @media (max-width:420px){.rules li{grid-template-columns:auto 1fr}.rules .rt{grid-column:2}.rules li>span:last-child{grid-column:1/-1}}
+.seat.hidden .who{color:var(--accent);font-weight:800;letter-spacing:.1em}
+.seat.flip{animation:flipIn .6s ease-out both}
+@keyframes flipIn{0%{transform:rotateY(90deg);opacity:.2}100%{transform:rotateY(0);opacity:1}}
 @media print{.noprint{display:none!important}body{background:#fff}.card{box-shadow:none;border:none}}
 </style>
 <script src="config.js"></script>
@@ -359,6 +362,7 @@ function onRoom(room){
     setTimeout(render, 7100);
   }
   S.rev.seen = rk;
+  if (S.room && S.room.phase !== 'done' && room?.phase === 'done' && soundOn()) sfxFanfare();
   S.room = room;
   render();
 }
@@ -421,8 +425,11 @@ function gridTemplate(cols, group, aisle = '22px'){
 }
 const aisleAfter = (c, cols, group) => group > 1 && (c + 1) % group === 0 && c < cols - 1;
 
-function seatMap(r, { me = null, clickable = false, size = '' } = {}){
+const isOpen = r => r.phase === 'done';   // 자리 오픈(공개) 여부
+function seatMap(r, { me = null, clickable = false, size = '', reveal = false } = {}){
   const L = r.layout; const G = +L.group || 1;
+  const show = reveal || isOpen(r);
+  let k = 0;
   const pos = {};
   seatsOf(r).forEach(s => pos[s.r * L.cols + s.c] = s);
   const cur = r.auction && r.auction.stage !== 'result' ? r.auction.seat : null;
@@ -438,10 +445,13 @@ function seatMap(r, { me = null, clickable = false, size = '' } = {}){
     if (s.id === cur) cls.push('current');
     if (me && s.owner === me) cls.push('mine');
     if (clickable) cls.push('clickable');
-    const label = s.owner ? esc(nameOf(r, s.owner)) : s.id === cur ? '경매 중' : s.status === 'skipped' ? '보류' : s.status === 'failed' ? '유찰' : '';
-    h += `<div class="${cls.join(' ')}" ${clickable ? `data-act="seatClick" data-id="${s.id}"` : ''}><span class="num">${s.num}</span><span class="who">${label}</span></div>${tail}`;
+    if (s.owner && !show && s.owner !== me) cls.push('hidden');
+    const anim = isOpen(r) && !reveal && s.owner ? ` style="animation-delay:${(k++) * 90}ms"` : '';
+    if (anim) cls.push('flip');
+    const label = s.owner ? (show || s.owner === me ? esc(nameOf(r, s.owner)) : '선점') : s.id === cur ? '경매 중' : s.status === 'skipped' ? '보류' : s.status === 'failed' ? '유찰' : '';
+    h += `<div class="${cls.join(' ')}"${anim} ${clickable ? `data-act="seatClick" data-id="${s.id}"` : ''}><span class="num">${s.num}</span><span class="who">${label}</span></div>${tail}`;
   }
-  return h + `</div><div class="legend"><span><i style="background:var(--accent-soft);border-color:#b9d8c6"></i>주인 있음</span><span><i style="background:var(--gold-soft);border-color:var(--gold)"></i>경매 중</span><span><i style="border-style:dashed"></i>유찰(나중에 다시)</span><span><i></i>빈 자리 / 보류</span></div>`;
+  return h + `</div><div class="legend"><span><i style="background:var(--accent-soft);border-color:#b9d8c6"></i>${show ? '주인 있음' : '선점됨(이름은 자리 오픈 때 공개)'}</span><span><i style="background:var(--gold-soft);border-color:var(--gold)"></i>경매 중</span><span><i style="border-style:dashed"></i>유찰(나중에 다시)</span><span><i></i>빈 자리 / 보류</span></div>`;
 }
 
 /* 참여자 공개 블록 (추첨 애니메이션 포함) */
@@ -514,9 +524,13 @@ function round2Gains(r){
 /* 패자부활전·지원금 알림 (전광판 7초) */
 function revivalBanner(r, { me = null, big = false } = {}){
   const v = r.revival;
-  if (!v || Date.now() >= S.rev.until) return '';
+  if (!v || Date.now() >= S.rev.until || r.phase === 'done') return '';
   const ids = Object.keys(v.ids || {}).sort(byOrder(r));
   const mine = me && v.ids?.[me];
+  if (v.type === 'random'){
+    if (me) return v.ids?.[me] ? `<div class="revival"><div class="rv-title">랜덤 배정!</div><div>내 자리는 <b>${v.ids[me]}번</b>이에요. 자리 오픈 때까지 비밀!</div></div>` : '';
+    return `<div class="revival ${big ? 'big' : ''}"><div class="rv-title">랜덤 배정 완료!</div><div>자리가 없던 친구 <b>${v.n}명</b>이 남은 자리에 무작위로 배정됐어요. 누가 어디인지는 자리 오픈 때 공개!</div></div>`;
+  }
   if (v.type === 'round2'){
     if (me) return '';
     return `<div class="revival ${big ? 'big' : ''}">
@@ -531,7 +545,7 @@ function revivalBanner(r, { me = null, big = false } = {}){
 }
 
 /* 결과 블록 */
-function resultBlock(r){
+function resultBlock(r, { secret = false, me = null } = {}){
   const a = r.auction, res = a.result || {};
   const bids = res.bids || {};
   const num = r.seats[a.seat]?.num;
@@ -539,14 +553,16 @@ function resultBlock(r){
   const rows = Object.entries(bids).sort((x, y) => y[1] - x[1] || byOrder(r)(x[0], y[0]));
   const folds = Object.keys(res.folds || {}).sort(byOrder(r));
   const msg = res.winner
-    ? `<b>${esc(nameOf(r, res.winner))}</b> 학생이 <b>${num}번 자리</b>를 가져갔어요!`
+    ? (secret ? (me && res.winner === me ? `<b>선점 성공!</b> <b>${num}번 자리</b>는 내 자리예요. 쉿, 자리 오픈 때까지 비밀!` : `<b>${num}번 자리 선점 완료!</b><br><span class="muted small">누가 가져갔는지는 자리 오픈 때 공개돼요.</span>`)
+       : `<b>${esc(nameOf(r, res.winner))}</b> 학생이 <b>${num}번 자리</b>를 가져갔어요!`)
     : !rows.length
     ? `모두 기권해서 <b>${num}번 자리</b>는 아무도 가져가지 못했어요.<br><span class="muted small">이 자리는 나중에 다시 경매해요.</span>`
     : `겹치지 않은 숫자가 없어서 <b>${num}번 자리</b>는 아무도 가져가지 못했어요.<br><span class="muted small">이 자리는 나중에 다시 경매해요.</span>`;
   return `<div class="stack">
     <div class="result-msg">${msg}</div>
+    ${secret && rows.length ? '<div class="muted small">건 코인 (이름은 비밀)</div>' : ''}
     <table><thead><tr><th>학생</th><th>건 코인</th><th></th></tr></thead><tbody>
-    ${rows.map(([id, v]) => `<tr class="${id === res.winner ? 'win' : cnt[v] > 1 ? 'dup' : ''}"><td>${esc(nameOf(r, id))}</td><td>${bidStones(v)} <b>${v}</b></td><td>${id === res.winner ? '<span class="pill">낙찰</span>' : cnt[v] > 1 ? '<span class="pill red">겹침</span>' : ''}</td></tr>`).join('')}
+    ${rows.map(([id, v]) => `<tr class="${id === res.winner ? 'win' : cnt[v] > 1 ? 'dup' : ''}"><td>${secret ? (me && id === me ? '<b>나</b>' : '<span class="muted">?</span>') : esc(nameOf(r, id))}</td><td>${bidStones(v)} <b>${v}</b></td><td>${id === res.winner ? '<span class="pill">낙찰</span>' : cnt[v] > 1 ? '<span class="pill red">겹침</span>' : ''}</td></tr>`).join('')}
     ${folds.map(id => `<tr class="fold"><td>${esc(nameOf(r, id))}</td><td>기권 <span class="small">(코인 ${res.folds[id]}개 냄)</span></td><td><span class="pill red">다이</span></td></tr>`).join('')}
     </tbody></table>
     <p class="muted small">${!rows.length ? '기권한 학생은 코인 1개를 냈어요.' : res.winner ? '경매에 참여한 학생은 모두 건 코인을 반납했어요.' + (folds.length ? ' 기권한 학생은 코인 1개를 냈어요.' : '')
@@ -565,12 +581,13 @@ function rulesList(r){
     ['참여 신청', `선생님이 자리를 고르면 ${es ? `<b>${es}초</b> 안에 ` : ''}<b>참여하기</b> 또는 <b>참가하지 않기</b>를 골라요. 누가 신청했는지는 비밀!`],
     ['추첨', `신청자가 <b>${max}명</b>을 넘으면 추첨으로 ${max}명을 뽑아요.`],
     ['코인 걸기', `뽑힌 친구는 ${bs ? `<b>${bs}초</b> 안에 ` : ''}코인 <b>1~${Math.min(7, n)}개</b>를 걸어요.`],
-    ['승자', `<b>다른 친구와 겹치지 않은 숫자</b> 중 가장 큰 숫자를 건 친구가 자리를 가져가요.<br><span class="muted">예) 5, 5, 4, 1 → 5는 겹쳐서 무효! 4를 건 친구가 이겨요.</span>`],
+    ['승자', `<b>다른 친구와 겹치지 않은 숫자</b> 중 가장 큰 숫자를 건 친구가 자리를 가져가요.<br><span class="muted">예) 5, 5, 4, 1 → 5는 겹쳐서 무효! 4를 건 친구가 이겨요.</span><br><b>누가 가져갔는지는 비밀!</b> 전광판에는 "선점 완료"만 나오고, 이긴 친구 화면에만 알려 줘요.`],
     ['코인 내기', `이기든 지든 <b>건 코인은 모두 내요.</b> 모두 겹쳐서 아무도 못 가져가면 <b>유찰</b>, ${refund}.`],
     ['기권(다이)', `코인을 거는 대신 <b>기권</b>하면 코인 <b>1개</b>를 내고 빠져요. 시간 안에 안 걸어도 기권이에요.`],
     ...(bonus ? [['지원금', `모든 자리를 한 번씩 경매하고 나면, <b>자리가 없는 친구</b>에게 코인 <b>${bonus}개</b>! (최대 ${n}개까지)`]] : []),
     ['자리 정리', `자리를 여러 개 얻으면 앉을 자리와 <b>자리 없는 친구에게 줄 자리</b>를 선생님께 말해요.`],
-    ['마지막', `끝까지 자리가 없는 친구는 <b>가위바위보</b>로 남은 자리를 골라요.`],
+    ['랜덤 배정', `끝까지 자리가 없는 친구는 남은 자리에 <b>랜덤으로</b> 배정돼요.`],
+    ['자리 오픈', `모든 자리가 정해지면 선생님이 <b>자리 오픈</b>! 그때 누가 어디에 앉는지 한꺼번에 공개돼요.`],
   ];
 }
 function rulesCard(r, { big = false } = {}){
@@ -767,7 +784,8 @@ function renderAdmin(){
         <a class="btn sm" href="#/">처음</a><button class="btn danger sm" data-act="deleteRoom" data-code="${esc(S.code)}">방 삭제</button></div>
     </div>
     <div class="grid2">
-      <div class="card">${seatMap(r, { clickable: r.phase !== 'lobby', size: '' })}
+      <div class="card">${seatMap(r, { clickable: r.phase !== 'lobby', size: '', reveal: true })}
+        ${r.phase !== 'done' && r.phase !== 'lobby' ? '<p class="muted small noprint" style="margin:8px 0 0">선생님 화면에만 이름이 보여요. 전광판·학생 화면에는 "선점"으로 보여요.</p>' : ''}
         <p class="muted small noprint" style="margin:10px 0 0">${r.phase === 'auction' ? '빈 자리를 누르면 그 자리 경매를 시작해요. 주인 있는 자리를 누르면 직접 고칠 수 있어요.' : r.phase === 'lobby' ? '' : '자리를 누르면 학생을 직접 배정하거나 비울 수 있어요.'}</p></div>
       <div class="stack noprint">
         <div class="card stack">${control}</div>
@@ -869,13 +887,15 @@ function adminArrange(r){
         <span class="row" style="gap:6px">${ownedBy(r, s.id).map(x => `<button class="btn sm" data-act="seatClick" data-id="${x.id}">${x.num}번</button>`).join('')}</span></div>`).join('') : '<div class="muted small">모두 정리됐어요</div>'}</div>
     <div><div class="muted small">자리가 없는 학생 ${none.length}명 · 빈 자리 ${empty.length}개</div>
       <div class="chips" style="margin-top:6px">${none.map(s => `<span class="pchip">${esc(s.name)}</span>`).join('') || '<span class="muted small">없어요</span>'}</div></div>
-    ${none.length ? `<div class="hint">가위바위보로 순서를 정한 뒤, 자리표의 <b>빈 자리를 눌러</b> 학생을 배정하세요.</div>` : ''}
-    <div class="row"><button class="btn primary big" data-act="finish">자리 배치 완료</button><button class="btn" data-act="toAuction">← 경매로 돌아가기</button></div>`;
+    ${none.length ? `<div class="hint">자리 정리가 끝나면 <b>랜덤 배정</b>을 눌러 자리 없는 학생 ${none.length}명을 빈 자리 ${empty.length}개에 무작위로 넣어요. (직접 넣고 싶으면 빈 자리를 눌러도 돼요)</div>
+      <button class="btn gold big" data-act="randomAssign">남은 자리 랜덤 배정 ▶</button>` : ''}
+    <div class="row"><button class="btn primary big" data-act="finish">자리 오픈! (이름 공개)</button><button class="btn" data-act="toAuction">← 경매로 돌아가기</button></div>
+    <p class="muted small" style="margin:0">자리 오픈을 누르면 전광판과 학생 화면에 모든 자리 주인의 이름이 공개돼요.</p>`;
 }
 
 function adminDone(r){
-  return `<h3>자리 배치 완료</h3><p class="muted">전광판과 학생 화면에 최종 자리표가 보여요.</p>
-    <div class="row"><button class="btn" data-act="printPage">인쇄</button><button class="btn" data-act="toArrangeBack">← 자리 정리로 돌아가기</button></div>`;
+  return `<h3>자리 오픈 완료</h3><p class="muted">전광판과 학생 화면에 모든 자리 주인의 이름이 공개됐어요.</p>
+    <div class="row"><button class="btn" data-act="printPage">인쇄</button><button class="btn" data-act="toArrangeBack">← 다시 비공개로 (자리 정리로)</button></div>`;
 }
 
 function studentTable(r){
@@ -898,7 +918,7 @@ function historyCard(r){
   const h = Object.values(r.history || {}).sort((a, b) => b.t - a.t);
   if (!h.length) return '';
   return `<details class="card"><summary style="cursor:pointer;font-weight:700">경매 기록 (${h.length})</summary><div class="log" style="margin-top:8px">
-    ${h.map(x => x.round2 ? `<div><b>지원금 배부</b> <span class="muted">${Object.entries(x.ids || {}).map(([id, g]) => esc(nameOf(r, id)) + ' +' + g).join(', ') || '받은 학생 없음'}</span></div>` : x.revival ? `<div><b>패자부활전</b> <span class="muted">${Object.keys(x.ids || {}).map(id => esc(nameOf(r, id))).join(', ')} +${x.n}개</span></div>` : x.skip ? `<div><b>${x.num}번</b> <span class="muted">참여자 없음 → 보류</span></div>`
+    ${h.map(x => x.random ? `<div><b>랜덤 배정</b> <span class="muted">${Object.entries(x.ids || {}).map(([id, n]) => esc(nameOf(r, id)) + ' → ' + n + '번').join(', ')}</span></div>` : x.round2 ? `<div><b>지원금 배부</b> <span class="muted">${Object.entries(x.ids || {}).map(([id, g]) => esc(nameOf(r, id)) + ' +' + g).join(', ') || '받은 학생 없음'}</span></div>` : x.revival ? `<div><b>패자부활전</b> <span class="muted">${Object.keys(x.ids || {}).map(id => esc(nameOf(r, id))).join(', ')} +${x.n}개</span></div>` : x.skip ? `<div><b>${x.num}번</b> <span class="muted">참여자 없음 → 보류</span></div>`
       : `<div><b>${x.num}번</b> ${x.winner ? `→ <b>${esc(nameOf(r, x.winner))}</b> (${x.value}개)` : `<span class="muted">→ 유찰 (${REFUND[x.refund || 'none']})</span>`}
          <span class="muted small">[${Object.entries(x.bids || {}).sort((p, q) => q[1] - p[1]).map(([id, v]) => esc(nameOf(r, id)) + ' ' + v).concat(Object.keys(x.folds || {}).map(id => esc(nameOf(r, id)) + ' 기권')).join(', ')}]</span></div>`).join('')}
   </div></details>`;
@@ -1064,8 +1084,24 @@ A.toArrangeBack = () => upd({ phase: 'arrange' });
 A.finish = async () => {
   const r = S.room;
   const none = seatlessOf(r).length, pending = studentsOf(r).filter(s => ownedBy(r, s.id).length >= 2).length;
-  if ((none || pending) && !(await ask(`아직 자리가 없는 학생 ${none}명, 자리를 여러 개 가진 학생 ${pending}명이 있어요.\n그래도 완료할까요?`, '완료하기'))) return;
-  upd({ phase: 'done' });
+  if (none || pending){ if (!(await ask(`아직 자리가 없는 학생 ${none}명, 자리를 여러 개 가진 학생 ${pending}명이 있어요.\n그래도 자리를 오픈할까요?`, '오픈하기'))) return; }
+  else if (!(await ask('모든 자리 주인의 이름을 공개할까요?', '자리 오픈!'))) return;
+  upd({ phase: 'done', openAt: Date.now() });
+};
+A.randomAssign = async () => {
+  const r = S.room;
+  const none = seatlessOf(r), empty = seatsOf(r).filter(s => !s.owner);
+  if (!none.length) return;
+  const pending = studentsOf(r).filter(s => ownedBy(r, s.id).length >= 2);
+  if (pending.length && !(await ask(`아직 자리를 여러 개 가진 학생(${pending.map(s => s.name).join(', ')})이 있어요.\n정리하지 않은 자리는 그대로 두고, 남은 빈 자리로만 랜덤 배정할까요?`, '랜덤 배정'))) return;
+  if (!(await ask(`자리 없는 학생 ${none.length}명을 빈 자리 ${empty.length}개에 무작위로 배정할까요?`, '랜덤 배정'))) return;
+  const seats = shuffle(empty), kids = shuffle(none);
+  const t = Date.now(), patch = {}, ids = {};
+  kids.forEach((k, i) => { if (!seats[i]) return; patch[`seats/${seats[i].id}/owner`] = k.id; patch[`seats/${seats[i].id}/status`] = 'taken'; ids[k.id] = seats[i].num; });
+  patch.revival = { type: 'random', t, n: Object.keys(ids).length, ids };
+  patch[`history/h${t}`] = { random: true, ids, t };
+  upd(patch);
+  toast(`${Object.keys(ids).length}명을 랜덤 배정했어요`);
 };
 A.seatClick = d => {
   const r = S.room, s = r.seats[d.id];
@@ -1179,20 +1215,19 @@ function renderBoard(){
       else if (a.stage === 'bidding'){
         const sel = Object.keys(a.selected || {}); const done = sel.filter(id => a.bids?.[id] && !a.folds?.[id]).length; const foldN = sel.filter(id => a.folds?.[id]).length;
         side = `<div class="stack">${head}${participantsBlock(r, { showSubmitted: true })}${Date.now() < S.anim.until ? '' : `${countdownHTML(a, { big: true })}<div class="pill" style="font-size:18px">코인 건 학생 ${done} / ${sel.length}${foldN ? ` · 기권 ${foldN}` : ''}</div>`}</div>`;
-      } else side = `<div class="stack">${head}${resultBlock(r)}</div>`;
+      } else side = `<div class="stack">${head}${resultBlock(r, { secret: true })}</div>`;
     }
   } else if (r.phase === 'arrange'){
     const none = seatlessOf(r);
-    side = `<div class="stack"><h2>자리 정리</h2><p style="font-size:20px">자리를 여러 개 얻은 친구는<br>앉을 자리와 친구에게 줄 자리를<br><b>선생님께 말해 주세요.</b></p>
+    side = `<div class="stack"><h2>자리 정리</h2><p style="font-size:20px">자리를 여러 개 얻은 친구는<br>앉을 자리와 친구에게 줄 자리를<br><b>선생님께 말해 주세요.</b></p><p class="muted" style="font-size:17px">끝까지 자리가 없는 친구는 남은 자리에 <b>랜덤 배정</b>돼요.<br>모두 정해지면 <b>자리 오픈</b>!</p>
       ${none.length ? `<div><div class="muted">자리가 없는 친구</div><div class="chips" style="margin-top:8px">${none.map(s => `<span class="pchip">${esc(s.name)}</span>`).join('')}</div></div>` : ''}</div>`;
-  } else side = `<div class="stack"><h1 style="font-size:40px">자리 배치 완료!</h1><p class="muted" style="font-size:20px">새 자리로 이동하세요.</p></div>`;
+  } else side = `<div class="stack" style="text-align:center"><h1 style="font-size:48px">자리 오픈!</h1><p class="muted" style="font-size:22px">내 이름을 찾아 새 자리로 이동하세요.</p></div>`;
 
   const broke = studentsOf(r).filter(s => s.stones <= 0);
   const brokeCard = (r.phase === 'auction' || r.phase === 'arrange') && broke.length ? `<div class="card stack" style="margin-top:18px">
     <div class="row" style="justify-content:center;gap:12px"><h2 style="margin:0;font-size:34px;letter-spacing:.04em">파산핑</h2><span class="pill red" style="font-size:16px">${broke.length}명</span></div>
     <div class="muted" style="text-align:center">코인을 모두 써 버린 친구들이에요.</div>
-    <div class="chips">${broke.map(s => { const n = ownedBy(r, s.id).length;
-      return `<span class="pchip" style="border-color:${n ? '#b9d8c6' : '#f0c9c4'};background:${n ? 'var(--accent-soft)' : 'var(--red-soft)'}">${esc(s.name)}<span class="ok">${n ? '자리 ' + ownedBy(r, s.id).map(x => x.num).join(',') + '번' : '자리가 없어요'}</span></span>`; }).join('')}</div>
+    <div class="chips" style="justify-content:center">${broke.map(s => `<span class="pchip" style="border-color:#f0c9c4;background:var(--red-soft)">${esc(s.name)}</span>`).join('')}</div>
   </div>` : '';
   app.innerHTML = `<div class="wrap board" style="max-width:1500px">
     ${demoNote()}
@@ -1265,11 +1300,11 @@ function renderStudent(){
         main = `${head}${participantsBlock(r)}${body}`;
       } else {
         const b = a.result?.bids?.[me], f = a.result?.folds?.[me];
-        main = `${head}${resultBlock(r)}${f != null && !b ? `<div class="hint" style="background:var(--red-soft);color:var(--red)">기권해서 코인 <b>${f}개</b>를 냈어요.</div>` : ''}${b ? `<div class="hint">${!a.result.winner ? (refundOf(refundMode(r), b) ? `나는 코인 <b>${b}개</b>를 걸었는데, 유찰돼서 <b>${refundOf(refundMode(r), b)}개</b>를 돌려받았어요.` : `나는 코인 <b>${b}개</b>를 걸었는데, 유찰돼서 돌려받지 못했어요.`) : a.result.winner === me ? `코인 <b>${b}개</b>로 자리를 차지했어요. 축하해요!` : `나는 코인 <b>${b}개</b>를 걸었어요. 아쉽지만 코인은 반납했어요.`}</div>` : ''}`;
+        main = `${head}${resultBlock(r, { secret: true, me })}${f != null && !b ? `<div class="hint" style="background:var(--red-soft);color:var(--red)">기권해서 코인 <b>${f}개</b>를 냈어요.</div>` : ''}${b ? `<div class="hint">${!a.result.winner ? (refundOf(refundMode(r), b) ? `나는 코인 <b>${b}개</b>를 걸었는데, 유찰돼서 <b>${refundOf(refundMode(r), b)}개</b>를 돌려받았어요.` : `나는 코인 <b>${b}개</b>를 걸었는데, 유찰돼서 돌려받지 못했어요.`) : a.result.winner === me ? `코인 <b>${b}개</b>로 자리를 차지했어요. 친구들에게는 비밀이에요!` : `나는 코인 <b>${b}개</b>를 걸었어요. 아쉽지만 코인은 반납했어요.`}</div>` : ''}`;
       }
     }
   } else if (r.phase === 'arrange') main = studentArrange(r, me, mySeats);
-  else main = `<h2>자리 배치 완료!</h2>${mySeats.length ? `<div class="bignum">${mySeats.map(s => s.num).join(', ')}번</div><p>새 자리로 이동하세요.</p>` : `<p class="muted">선생님이 자리를 알려 주실 거예요.</p>`}`;
+  else main = `<h2>자리 오픈!</h2>${mySeats.length ? `<div class="bignum">${mySeats.map(s => s.num).join(', ')}번</div><p>새 자리로 이동하세요.</p>` : `<p class="muted">선생님이 자리를 알려 주실 거예요.</p>`}`;
 
   app.innerHTML = `<div class="wrap narrow stack">
     ${demoNote()}
@@ -1300,8 +1335,8 @@ function myTries(r, me){
 }
 
 function studentArrange(r, me, mySeats){
-  if (mySeats.length === 0) return `<h2>자리 정리 중</h2><div class="hint">자리를 여러 개 얻은 친구가 선생님께 누구에게 자리를 줄지 말하고 있어요. 끝까지 자리가 없으면 가위바위보로 남은 자리를 골라요.</div>`;
-  if (mySeats.length === 1) return `<h2>내 자리는 ${mySeats[0].num}번</h2><p class="muted">다른 친구들이 정리할 때까지 기다려요.</p>`;
+  if (mySeats.length === 0) return `<h2>자리 정리 중</h2><div class="hint">자리를 여러 개 얻은 친구가 선생님께 누구에게 자리를 줄지 말하고 있어요. 끝까지 자리가 없으면 남은 자리에 <b>랜덤으로</b> 배정돼요.</div>`;
+  if (mySeats.length === 1) return `<h2>내 자리는 ${mySeats[0].num}번</h2><p class="muted">자리 오픈 때까지 친구들에게는 비밀이에요. 다른 친구들이 정리할 때까지 기다려요.</p>`;
   return `<h2>자리를 ${mySeats.length}개 얻었어요!</h2>
     <div class="row">${mySeats.map(s => `<span class="pill gold" style="font-size:18px">${s.num}번</span>`).join('')}</div>
     <div class="hint">선생님이 부르면 <b>① 내가 앉을 자리</b>와 <b>② 나머지 자리를 누구에게 줄지</b> 말로 알려 주세요. 선생님이 정리해 주실 거예요.</div>`;
