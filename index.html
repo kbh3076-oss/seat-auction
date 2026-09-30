@@ -455,7 +455,7 @@ function seatMap(r, { me = null, clickable = false, size = '', reveal = false } 
 }
 
 /* 참여자 공개 블록 (추첨 애니메이션 포함) */
-function participantsBlock(r, { showSubmitted = false } = {}){
+function participantsBlock(r, { showSubmitted = false, secret = false, me = null } = {}){
   const a = r.auction;
   const pool = Object.keys(a.pool || a.selected || {}).sort(byOrder(r));
   const sel = a.selected || {};
@@ -468,9 +468,16 @@ function participantsBlock(r, { showSubmitted = false } = {}){
   const head = a.drawn
     ? (rolling ? `${pool.length}명이 신청했어요! ${max}명을 뽑는 중…` : `${pool.length}명 신청 → 추첨으로 ${max}명 선정`)
     : `참여자 ${pool.length}명`;
+  // 비공개 화면(전광판·학생): 혼자 참여하면 이름을 숨기고, 기권자도 드러내지 않는다
+  if (secret && pool.length === 1){
+    const solo = me && pool[0] === me;
+    return `<div class="stack"><div class="stage">참여자 1명</div><div class="chips"><span class="pchip in">${solo ? '나 혼자 참여했어요' : '? (이름은 비밀)'}</span></div>
+      ${solo ? '' : '<div class="muted small">혼자 참여하면 누구인지 알 수 있어서 이름을 숨겨요.</div>'}</div>`;
+  }
   const chips = pool.map(id => {
     if (rolling) return `<span class="pchip rolling">${esc(nameOf(r, id))}</span>`;
     const done = a.bids?.[id], folded = a.folds?.[id];
+    if (secret) return `<span class="pchip ${sel[id] ? 'in' : 'out'}">${esc(nameOf(r, id))}</span>`;
     if (sel[id] && folded) return `<span class="pchip folded">${esc(nameOf(r, id))}<span class="ok">기권</span></span>`;
     return `<span class="pchip ${sel[id] ? 'in' : 'out'}">${esc(nameOf(r, id))}${showSubmitted && sel[id] ? `<span class="ok">${done ? '✔' : '…'}</span>` : ''}</span>`;
   }).join('');
@@ -516,6 +523,13 @@ setInterval(tickCountdowns, 200);
 /* 2라운드: 한 바퀴(모든 자리를 한 번씩 경매)가 끝났는지 */
 const bonusN = r => (r.meta.bonus2 == null ? 2 : +r.meta.bonus2);
 const lapDone = r => seatsOf(r).every(s => s.owner || (s.status && s.status !== 'open'));
+/* 몇 바퀴를 돌았는지: 아직 빈 자리들이 모두 몇 번씩 경매됐는지(최솟값) */
+const triesOf = s => s.tries ?? (s.status && s.status !== 'open' ? 1 : 0);
+function lapsDone(r){
+  const empty = seatsOf(r).filter(s => !s.owner);
+  if (!empty.length) return Math.max(1, ...seatsOf(r).map(triesOf));
+  return Math.min(...empty.map(triesOf));
+}
 function round2Gains(r){
   const cap = r.meta.stones, n = bonusN(r);
   return seatlessOf(r).map(s => ({ id: s.id, name: s.name, from: s.stones, gain: Math.max(0, Math.min(cap, s.stones + n) - s.stones) }));
@@ -563,7 +577,7 @@ function resultBlock(r, { secret = false, me = null } = {}){
     ${secret && rows.length ? '<div class="muted small">건 코인 (이름은 비밀)</div>' : ''}
     <table><thead><tr><th>학생</th><th>건 코인</th><th></th></tr></thead><tbody>
     ${rows.map(([id, v]) => `<tr class="${id === res.winner ? 'win' : cnt[v] > 1 ? 'dup' : ''}"><td>${secret ? (me && id === me ? '<b>나</b>' : '<span class="muted">?</span>') : esc(nameOf(r, id))}</td><td>${bidStones(v)} <b>${v}</b></td><td>${id === res.winner ? '<span class="pill">낙찰</span>' : cnt[v] > 1 ? '<span class="pill red">겹침</span>' : ''}</td></tr>`).join('')}
-    ${folds.map(id => `<tr class="fold"><td>${esc(nameOf(r, id))}</td><td>기권 <span class="small">(코인 ${res.folds[id]}개 냄)</span></td><td><span class="pill red">다이</span></td></tr>`).join('')}
+    ${folds.map(id => `<tr class="fold"><td>${secret ? (me && id === me ? '<b>나</b>' : '<span class="muted">?</span>') : esc(nameOf(r, id))}</td><td>기권 <span class="small">(코인 ${res.folds[id]}개 냄)</span></td><td><span class="pill red">다이</span></td></tr>`).join('')}
     </tbody></table>
     <p class="muted small">${!rows.length ? '기권한 학생은 코인 1개를 냈어요.' : res.winner ? '경매에 참여한 학생은 모두 건 코인을 반납했어요.' + (folds.length ? ' 기권한 학생은 코인 1개를 냈어요.' : '')
       : { none: '모두 겹쳐서 유찰! 건 코인은 돌려받지 못해요.', half: '모두 겹쳐서 유찰! 건 코인의 절반(내림)을 돌려받아요.', all: '모두 겹쳐서 유찰! 건 코인은 모두 돌려받아요.' }[refundMode(r)]}</p>
@@ -579,11 +593,11 @@ function rulesList(r){
   return [
     ['시작', `모두 코인 <b>${n}개</b>로 시작해요. 코인은 누구도 <b>${n}개를 넘을 수 없어요.</b>`],
     ['참여 신청', `선생님이 자리를 고르면 ${es ? `<b>${es}초</b> 안에 ` : ''}<b>참여하기</b> 또는 <b>참가하지 않기</b>를 골라요. 누가 신청했는지는 비밀!`],
-    ['추첨', `신청자가 <b>${max}명</b>을 넘으면 추첨으로 ${max}명을 뽑아요.`],
+    ['추첨', `신청자가 <b>${max}명</b>을 넘으면 추첨으로 ${max}명을 뽑아요. 참여자 이름은 공개되지만, <b>혼자 참여하면 이름은 비밀</b>이에요.`],
     ['코인 걸기', `뽑힌 친구는 ${bs ? `<b>${bs}초</b> 안에 ` : ''}코인 <b>1~${Math.min(7, n)}개</b>를 걸어요.`],
     ['승자', `<b>다른 친구와 겹치지 않은 숫자</b> 중 가장 큰 숫자를 건 친구가 자리를 가져가요.<br><span class="muted">예) 5, 5, 4, 1 → 5는 겹쳐서 무효! 4를 건 친구가 이겨요.</span><br><b>누가 가져갔는지는 비밀!</b> 전광판에는 "선점 완료"만 나오고, 이긴 친구 화면에만 알려 줘요.`],
     ['코인 내기', `이기든 지든 <b>건 코인은 모두 내요.</b> 모두 겹쳐서 아무도 못 가져가면 <b>유찰</b>, ${refund}.`],
-    ['기권(다이)', `코인을 거는 대신 <b>기권</b>하면 코인 <b>1개</b>를 내고 빠져요. 시간 안에 안 걸어도 기권이에요.`],
+    ['기권(다이)', `코인을 거는 대신 <b>기권</b>하면 코인 <b>1개</b>를 내고 빠져요. 시간 안에 안 걸어도 기권이에요. 누가 기권했는지는 비밀!`],
     ...(bonus ? [['지원금', `모든 자리를 한 번씩 경매하고 나면, <b>자리가 없는 친구</b>에게 코인 <b>${bonus}개</b>! (최대 ${n}개까지)`]] : []),
     ['자리 정리', `자리를 여러 개 얻으면 앉을 자리와 <b>자리 없는 친구에게 줄 자리</b>를 선생님께 말해요.`],
     ['랜덤 배정', `끝까지 자리가 없는 친구는 남은 자리에 <b>랜덤으로</b> 배정돼요.`],
@@ -815,7 +829,10 @@ function adminAuction(r){
   const emptySeats = seatsOf(r).filter(s => !s.owner).length;
   const brokeN = studentsOf(r).filter(s => s.stones <= 0).length;
   const r2 = bonusN(r) > 0 && !r.round2 && lapDone(r) && seatlessOf(r).length && (!a || a.stage === 'result');
-  const tail = `${r2 ? `<div class="hint" style="background:var(--gold-soft);color:#7a4f0e">모든 자리를 한 번씩 경매했어요. 자리 없는 학생에게 <b>지원금</b>을 줄 수 있어요. (학생들에게는 보이지 않아요)</div>
+  const laps = lapsDone(r), shownLap = r.brokeShow?.lap || 0;
+  const bk = laps >= 1 && laps > shownLap && (!a || a.stage === 'result');
+  const tail = `${bk ? `<div class="hint" style="background:var(--red-soft);color:var(--red)"><b>${laps}바퀴</b>를 다 돌았어요. 전광판에 <b>파산핑</b>을 공개할 수 있어요. (지금 파산 ${brokeN}명)</div>
+      <button class="btn red big" data-act="brokeShow">파산핑 공개 ▶</button>` : ''}${r2 ? `<div class="hint" style="background:var(--gold-soft);color:#7a4f0e">모든 자리를 한 번씩 경매했어요. 자리 없는 학생에게 <b>지원금</b>을 줄 수 있어요. (학생들에게는 보이지 않아요)</div>
       <button class="btn gold big" data-act="round2Open">지원금 배부 ▶</button>` : ''}
     <div class="row spread">${brokeN ? `<button class="btn sm" data-act="reviveOpen">패자부활전 (파산 ${brokeN}명)</button>` : '<span></span>'}<button class="btn sm" data-act="toArrange">자리 정리 단계로 →</button></div>`;
   if (!a){
@@ -950,6 +967,12 @@ A.deleteAll = async () => {
   toast('모두 삭제했어요'); render();
 };
 A.grantClose = () => { LS.set('seatauction:grantSeen:' + S.code + ':' + getMe(), S.room?.revival?.t || 0); renderOverlay(); };
+A.brokeShow = () => {
+  const r = S.room, laps = lapsDone(r);
+  const ids = Object.fromEntries(studentsOf(r).filter(s => s.stones <= 0).map(s => [s.id, true]));
+  upd({ brokeShow: { lap: laps, t: Date.now(), ids: Object.keys(ids).length ? ids : { _none: true } } });
+  toast(`파산핑 공개! (${Object.keys(ids).length}명)`);
+};
 A.round2Open = () => { S.modal = { type: 'round2', announce: true }; renderOverlay(); };
 A.round2Announce = () => { if (S.modal?.type === 'round2'){ S.modal.announce = !S.modal.announce; renderOverlay(); } };
 A.round2Go = () => {
@@ -1011,7 +1034,7 @@ A.proceed = () => {
   if (!a || a.stage !== 'entry') return;
   const pool = Object.keys(a.entrants || {}).filter(id => (r.students[id]?.stones || 0) > 0 && (!a.deadline || a.entrants[id] <= a.deadline + 1500));
   if (!pool.length){
-    upd({ auction: null, [`seats/${a.seat}/status`]: 'skipped', [`history/h${Date.now()}`]: { num: r.seats[a.seat].num, skip: true, t: Date.now() } });
+    upd({ auction: null, [`seats/${a.seat}/status`]: 'skipped', [`seats/${a.seat}/tries`]: triesOf(r.seats[a.seat]) + 1, [`history/h${Date.now()}`]: { num: r.seats[a.seat].num, skip: true, t: Date.now() } });
     return;
   }
   const max = r.meta.maxBidders;
@@ -1070,6 +1093,7 @@ A.reveal = async () => {
   for (const id in bids) patch[`students/${id}/stones`] = r.students[id].stones - bids[id] + (d.winner ? 0 : refundOf(mode, bids[id]));
   if (d.winner){ patch[`seats/${a.seat}/owner`] = d.winner; patch[`seats/${a.seat}/status`] = 'taken'; }
   else patch[`seats/${a.seat}/status`] = 'failed';
+  patch[`seats/${a.seat}/tries`] = triesOf(r.seats[a.seat]) + 1;
   patch[`history/h${Date.now()}`] = { num: r.seats[a.seat].num, bids, folds, winner: d.winner || '', value: d.value, refund: mode, t: Date.now() };
   upd(patch);
 };
@@ -1211,10 +1235,10 @@ function renderBoard(){
       const num = r.seats[a.seat].num;
       const head = `<div class="stage" style="font-size:20px">${a.stage === 'entry' ? '참여 신청 받는 중' : a.stage === 'draw' ? '추첨을 기다려요' : a.stage === 'bidding' ? '코인을 거세요!' : '결과 발표'}</div><div class="bignum" style="font-size:96px">${num}번</div>`;
       if (a.stage === 'entry') side = `<div class="stack">${head}${countdownHTML(a, { big: true })}<p style="font-size:22px">이 자리에 앉고 싶은 사람은<br>내 화면에서 <b>참여하기</b>를 누르세요.</p><p class="muted">누가 신청했는지는 비밀이에요.</p></div>`;
-      else if (a.stage === 'draw') side = `<div class="stack">${head}${participantsBlock(r)}</div>`;
+      else if (a.stage === 'draw') side = `<div class="stack">${head}${participantsBlock(r, { secret: true })}</div>`;
       else if (a.stage === 'bidding'){
         const sel = Object.keys(a.selected || {}); const done = sel.filter(id => a.bids?.[id] && !a.folds?.[id]).length; const foldN = sel.filter(id => a.folds?.[id]).length;
-        side = `<div class="stack">${head}${participantsBlock(r, { showSubmitted: true })}${Date.now() < S.anim.until ? '' : `${countdownHTML(a, { big: true })}<div class="pill" style="font-size:18px">코인 건 학생 ${done} / ${sel.length}${foldN ? ` · 기권 ${foldN}` : ''}</div>`}</div>`;
+        side = `<div class="stack">${head}${participantsBlock(r, { secret: true })}${Date.now() < S.anim.until ? '' : `${countdownHTML(a, { big: true })}<div class="pill" style="font-size:18px">결정한 학생 ${done + foldN} / ${sel.length}</div>`}</div>`;
       } else side = `<div class="stack">${head}${resultBlock(r, { secret: true })}</div>`;
     }
   } else if (r.phase === 'arrange'){
@@ -1223,10 +1247,14 @@ function renderBoard(){
       ${none.length ? `<div><div class="muted">자리가 없는 친구</div><div class="chips" style="margin-top:8px">${none.map(s => `<span class="pchip">${esc(s.name)}</span>`).join('')}</div></div>` : ''}</div>`;
   } else side = `<div class="stack" style="text-align:center"><h1 style="font-size:48px">자리 오픈!</h1><p class="muted" style="font-size:22px">내 이름을 찾아 새 자리로 이동하세요.</p></div>`;
 
-  const broke = studentsOf(r).filter(s => s.stones <= 0);
-  const brokeCard = (r.phase === 'auction' || r.phase === 'arrange') && broke.length ? `<div class="card stack" style="margin-top:18px">
+  // 파산핑: 실시간으로 보여 주면 방금 이긴 사람이 드러나므로, 한 바퀴가 끝날 때 선생님이 공개한 명단만 보여 준다
+  const snap = r.brokeShow;
+  const broke = r.phase === 'done' ? studentsOf(r).filter(s => s.stones <= 0)
+    : snap ? studentsOf(r).filter(s => snap.ids?.[s.id]) : [];
+  const brokeCard = (r.phase === 'done' ? broke.length : snap) ? `<div class="card stack" style="margin-top:18px">
     <div class="row" style="justify-content:center;gap:12px"><h2 style="margin:0;font-size:34px;letter-spacing:.04em">파산핑</h2><span class="pill red" style="font-size:16px">${broke.length}명</span></div>
-    <div class="muted" style="text-align:center">코인을 모두 써 버린 친구들이에요.</div>
+    <div class="muted" style="text-align:center">${r.phase === 'done' ? '이번 판에 코인을 모두 써 버린 친구들이에요.' : `${snap.lap}바퀴째까지 코인을 모두 써 버린 친구들이에요.`}</div>
+    ${broke.length ? '' : '<div class="muted" style="text-align:center">아직 아무도 없어요!</div>'}
     <div class="chips" style="justify-content:center">${broke.map(s => `<span class="pchip" style="border-color:#f0c9c4;background:var(--red-soft)">${esc(s.name)}</span>`).join('')}</div>
   </div>` : '';
   app.innerHTML = `<div class="wrap board" style="max-width:1500px">
@@ -1278,7 +1306,7 @@ function renderStudent(){
               ? `<div class="hint"><b>시간이 끝났어요!</b> 이번 자리는 참가하지 않은 것으로 처리돼요.</div>`
               : `<p>이 자리에 앉고 싶나요?</p><div class="two"><button class="btn primary big" data-act="toggleEntry">이 자리 경매 참여하기</button><button class="btn red big" data-act="passEntry">참가하지 않기</button></div>`);
       } else if (a.stage === 'draw'){
-        main = `${head}${participantsBlock(r)}${a.pool?.[me] ? '<div class="hint">나도 신청했어요! 선생님이 곧 추첨해요.</div>' : '<div class="hint">추첨을 지켜보는 중이에요.</div>'}`;
+        main = `${head}${participantsBlock(r, { secret: true, me })}${a.pool?.[me] ? '<div class="hint">나도 신청했어요! 선생님이 곧 추첨해요.</div>' : '<div class="hint">추첨을 지켜보는 중이에요.</div>'}`;
       } else if (a.stage === 'bidding'){
         const rolling = Date.now() < S.anim.until;
         let body = '';
@@ -1297,7 +1325,7 @@ function renderStudent(){
           } else if (a.pool?.[me]) body = `${countdownHTML(a)}<div class="hint">아쉽게도 추첨에서 뽑히지 않았어요. 코인은 그대로예요.</div>`;
           else body = `${countdownHTML(a)}<div class="hint">이번 경매를 지켜보는 중이에요.</div>`;
         }
-        main = `${head}${participantsBlock(r)}${body}`;
+        main = `${head}${participantsBlock(r, { secret: true, me })}${body}`;
       } else {
         const b = a.result?.bids?.[me], f = a.result?.folds?.[me];
         main = `${head}${resultBlock(r, { secret: true, me })}${f != null && !b ? `<div class="hint" style="background:var(--red-soft);color:var(--red)">기권해서 코인 <b>${f}개</b>를 냈어요.</div>` : ''}${b ? `<div class="hint">${!a.result.winner ? (refundOf(refundMode(r), b) ? `나는 코인 <b>${b}개</b>를 걸었는데, 유찰돼서 <b>${refundOf(refundMode(r), b)}개</b>를 돌려받았어요.` : `나는 코인 <b>${b}개</b>를 걸었는데, 유찰돼서 돌려받지 못했어요.`) : a.result.winner === me ? `코인 <b>${b}개</b>로 자리를 차지했어요. 친구들에게는 비밀이에요!` : `나는 코인 <b>${b}개</b>를 걸었어요. 아쉽지만 코인은 반납했어요.`}</div>` : ''}`;
