@@ -1,0 +1,1365 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>자리 경매</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+:root{
+  --bg:#f5f1e8; --card:#ffffff; --ink:#1f2328; --muted:#6b6f76; --line:#e3ddcf;
+  --accent:#2d6a4f; --accent-soft:#e3f0e8; --accent-ink:#ffffff;
+  --gold:#b7791f; --gold-soft:#fbf1dc; --red:#c0392b; --red-soft:#fbe9e7;
+  --seat:#fffdf8; --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 14px rgba(0,0,0,.05);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button{font:inherit;cursor:pointer}
+input,textarea,select{font:inherit}
+.wrap{max-width:1200px;margin:0 auto;padding:20px 16px 48px}
+.narrow{max-width:560px}
+h1,h2,h3{margin:0 0 .4em;line-height:1.25}
+h1{font-size:28px} h2{font-size:22px} h3{font-size:18px}
+.muted{color:var(--muted)} .small{font-size:13px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:var(--shadow)}
+.stack>*+*{margin-top:14px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.spread{justify-content:space-between}
+.grid2{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(320px,1fr);gap:18px;align-items:start}
+@media (max-width:860px){.grid2{grid-template-columns:1fr}}
+.btn{border:1px solid var(--line);background:#fff;color:var(--ink);padding:10px 16px;border-radius:12px;font-weight:600}
+a.btn{text-decoration:none;display:inline-block;text-align:center}
+.btn:hover{background:#faf8f3}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn.gold{background:var(--gold);border-color:var(--gold);color:#fff}
+.btn.danger{color:var(--red);border-color:#f0c9c4}
+.btn.red{background:var(--red);border-color:var(--red);color:#fff}
+.btn.red:hover{filter:brightness(1.08)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.two .btn{width:100%;word-break:keep-all;padding-left:10px;padding-right:10px}
+.btn.big{padding:14px 22px;font-size:18px;border-radius:14px}
+.btn.sm{padding:5px 10px;font-size:13px;border-radius:9px}
+.btn:disabled{opacity:.45;cursor:not-allowed;filter:none}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-weight:600;font-size:14px}
+.input{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff;width:100%}
+textarea.input{min-height:140px;resize:vertical}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:13px;font-weight:600}
+.pill.gray{background:#eeeae1;color:var(--muted)}
+.pill.gold{background:var(--gold-soft);color:var(--gold)}
+.pill.red{background:var(--red-soft);color:var(--red)}
+.topbar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:16px}
+.code{font-size:30px;font-weight:800;letter-spacing:.12em;color:var(--accent)}
+.demo{background:var(--gold-soft);color:#7a4f0e;border:1px solid #f0dcb0;border-radius:12px;padding:8px 12px;font-size:14px;margin-bottom:14px}
+
+/* 코인 */
+.stones{display:inline-flex;gap:5px;flex-wrap:wrap;vertical-align:middle}
+.stone{width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 34% 28%,#fff6c4 0 14%,#f7cf4a 42%,#d99a17 78%,#b87a0c 100%);
+  box-shadow:inset 0 0 0 1.5px #a86f08,inset 0 0 0 3.5px #f9dc72,0 1px 2px rgba(80,50,0,.35);
+  color:#9a6406;font-weight:900;font-size:11px;line-height:1;font-family:Georgia,serif}
+.stone::after{content:'C'}
+.stone.used{background:transparent;box-shadow:inset 0 0 0 2px #e2d7bd;color:transparent}
+.stones.lg .stone{width:30px;height:30px;font-size:16px;box-shadow:inset 0 0 0 2px #a86f08,inset 0 0 0 5px #f9dc72,0 1px 3px rgba(80,50,0,.35)}
+.stones.lg .stone.used{box-shadow:inset 0 0 0 2px #e2d7bd}
+.stones.sm .stone{width:14px;height:14px;font-size:8px;box-shadow:inset 0 0 0 1px #a86f08,inset 0 0 0 2.5px #f9dc72}
+.stones.xl .stone{width:64px;height:64px;font-size:34px;box-shadow:inset 0 0 0 3px #a86f08,inset 0 0 0 9px #f9dc72,0 4px 10px rgba(80,50,0,.35)}
+.grant .stones.xl .stone{animation:coinIn .6s ease-out both}
+.grant .stones.xl .stone:nth-child(2){animation-delay:.15s}.grant .stones.xl .stone:nth-child(3){animation-delay:.3s}
+@keyframes coinIn{0%{transform:translateY(-60px) rotateY(0);opacity:0}70%{transform:translateY(6px) rotateY(540deg);opacity:1}100%{transform:translateY(0) rotateY(720deg)}}
+.grant h2{font-size:26px;line-height:1.35}
+.grant .praise{font-size:30px;font-weight:900;color:#9a5b00;letter-spacing:.06em}
+
+/* 자리표 */
+.desk{margin:0 auto 10px;width:40%;min-width:120px;text-align:center;background:#8b6b4a;color:#fff;border-radius:8px;padding:4px 0;font-size:13px;font-weight:700;letter-spacing:.2em}
+.map{display:grid;gap:8px}
+.aisle{min-height:1px}
+.cell{min-height:62px;border-radius:12px}
+.cell.gap{background:transparent}
+.seat{border:2px solid var(--line);background:var(--seat);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4px;text-align:center;transition:transform .15s}
+.seat .num{font-size:12px;font-weight:800;color:var(--muted)}
+.seat .who{font-size:15px;font-weight:700;min-height:1.3em;word-break:keep-all;line-height:1.2}
+.seat.taken{background:var(--accent-soft);border-color:#b9d8c6}
+.seat.taken .num{color:var(--accent)}
+.seat.skipped .who,.seat.failed .who{color:var(--muted);font-size:12px;font-weight:600}
+.seat.failed{border-style:dashed}
+.seat.current{border-color:var(--gold);background:var(--gold-soft);animation:pulse 1.4s infinite}
+.seat.mine{outline:3px solid var(--gold);outline-offset:1px}
+.seat.clickable{cursor:pointer}
+.seat.clickable:hover{transform:translateY(-2px);border-color:var(--accent)}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(183,121,31,.35)}50%{box-shadow:0 0 0 7px rgba(183,121,31,0)}}
+.map.big .cell{min-height:92px}
+.map.big .seat .num{font-size:15px}
+.map.big .seat .who{font-size:22px}
+.map.small .cell{min-height:44px}
+.map.small .seat .who{font-size:12px}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:10px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:4px;border:2px solid var(--line);vertical-align:-2px;margin-right:4px}
+
+/* 참여자 칩 */
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.pchip{padding:8px 14px;border-radius:12px;border:2px solid var(--line);background:#fff;font-weight:700;transition:all .1s}
+.pchip.in{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.pchip.out{opacity:.4;text-decoration:line-through}
+.pchip.hot{border-color:var(--gold);background:var(--gold);color:#fff;transform:scale(1.06)}
+.pchip .ok{margin-left:6px;font-size:12px}
+.board .pchip{font-size:24px;padding:10px 20px}
+
+.bignum{font-size:56px;font-weight:900;color:var(--gold);line-height:1}
+.stage{font-size:14px;font-weight:700;color:var(--gold);letter-spacing:.04em}
+
+/* 입찰 패드 */
+.pad{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+@media (max-width:420px){.pad{grid-template-columns:repeat(4,1fr)}}
+.pad button{aspect-ratio:1;border-radius:50%;border:2px solid var(--line);background:#fff;font-size:22px;font-weight:800}
+.pad button.sel{background:#1b1b1b;color:#fff;border-color:#1b1b1b}
+.pad button:disabled{opacity:.25}
+
+/* 결과표 */
+table{border-collapse:collapse;width:100%}
+th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:left;font-size:15px}
+th{font-size:13px;color:var(--muted);font-weight:600}
+tr.win td{background:var(--accent-soft);font-weight:700}
+tr.dup td{color:var(--muted)}
+.board td{font-size:22px;padding:10px 8px}
+.result-msg{font-size:20px;font-weight:700}
+.board .result-msg{font-size:32px}
+
+/* 이름 선택 */
+.names{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}
+.names button{padding:14px 8px;border-radius:12px;border:1px solid var(--line);background:#fff;font-weight:700;font-size:17px}
+.names button:hover{border-color:var(--accent)}
+.names button small{display:block;font-size:11px;color:var(--muted);font-weight:500}
+
+/* 설정 격자 */
+.editor{display:grid;gap:6px}
+.editor div{height:40px;border-radius:8px;border:2px dashed var(--line);cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:var(--muted);user-select:none}
+.editor div.s{border-style:solid;border-color:#b9d8c6;background:var(--accent-soft);color:var(--accent)}
+
+/* 오버레이 */
+.modal-bg{position:fixed;inset:0;background:rgba(20,20,20,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
+.modal{background:#fff;border-radius:18px;padding:20px;max-width:520px;width:100%;max-height:85vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1f2328;color:#fff;padding:10px 18px;border-radius:12px;z-index:60;font-size:15px;max-width:calc(100% - 32px)}
+.siteurl{font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:700;background:#fff;border:2px dashed var(--line);border-radius:12px;padding:8px 14px;word-break:break-all;display:inline-block}
+.log{max-height:240px;overflow:auto;font-size:14px}
+.log div{padding:6px 0;border-bottom:1px dashed var(--line)}
+.me-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.hint{background:#f8f6f0;border-radius:12px;padding:10px 12px;font-size:14px;color:var(--muted)}
+.revival{background:linear-gradient(135deg,#fff4d6,#ffe1a8);border:2px solid var(--gold);border-radius:16px;padding:14px 18px;text-align:center;animation:pop .5s ease-out;margin-bottom:14px}
+.revival .rv-title{font-size:22px;font-weight:900;color:#9a5b00;letter-spacing:.05em}
+.revival.big{padding:22px}.revival.big .rv-title{font-size:44px}.revival.big div{font-size:24px}
+@keyframes pop{0%{transform:scale(.85);opacity:0}60%{transform:scale(1.04);opacity:1}100%{transform:scale(1)}}
+.cd{display:flex;align-items:center;gap:12px}
+.cd-num{font-size:26px;font-weight:900;color:var(--accent);min-width:78px;font-variant-numeric:tabular-nums}
+.cd-bar{flex:1;height:10px;border-radius:99px;background:#ece6d8;overflow:hidden}
+.cd-bar i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .2s linear}
+.cd.hurry .cd-num{color:var(--red);animation:blink .5s infinite alternate}.cd.hurry .cd-bar i{background:var(--red)}
+.cd.over .cd-num{color:var(--muted);font-size:20px}
+.cd.big .cd-num{font-size:64px;min-width:170px}.cd.big .cd-bar{height:16px}
+@keyframes blink{to{opacity:.45}}
+.pchip.folded{border-color:#f0c9c4;background:var(--red-soft);color:var(--red);text-decoration:line-through}
+.pchip.folded .ok{text-decoration:none;display:inline-block}
+.btn.fold{width:100%;margin-top:4px}
+tr.fold td{color:var(--red)}
+.rules h2{text-align:center;margin-bottom:12px}
+.rules ol{list-style:none;counter-reset:r;margin:0;padding:0;display:grid;gap:8px}
+.rules li{counter-increment:r;display:grid;grid-template-columns:auto 88px 1fr;gap:10px;align-items:baseline;padding:10px 12px;background:#faf7f0;border-radius:12px;font-size:15px;line-height:1.5}
+.rules li::before{content:counter(r);width:24px;height:24px;border-radius:50%;background:var(--gold);color:#fff;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;align-self:start}
+.rules .rt{font-weight:800;color:var(--gold)}
+.rules.big ol{grid-template-columns:1fr 1fr}
+.rules.big li{font-size:19px;grid-template-columns:auto 110px 1fr}
+.rules.big li::before{width:30px;height:30px;font-size:16px}
+.rules.big h2{font-size:32px}
+@media (max-width:860px){.rules.big ol{grid-template-columns:1fr}}
+@media (max-width:420px){.rules li{grid-template-columns:auto 1fr}.rules .rt{grid-column:2}.rules li>span:last-child{grid-column:1/-1}}
+@media print{.noprint{display:none!important}body{background:#fff}.card{box-shadow:none;border:none}}
+</style>
+<script src="config.js"></script>
+
+</head>
+<body>
+<div id="app"></div>
+<div id="overlay"></div>
+<script type="module">
+/* ============================================================
+   저장소 (Firebase Realtime Database 또는 체험 모드)
+   ============================================================ */
+const CFG = window.FIREBASE_CONFIG;
+const USE_FB = !!(CFG && CFG.apiKey && CFG.databaseURL);
+let backend;
+
+function setPath(obj, path, val){
+  const ks = path.split('/').filter(Boolean);
+  const stack = [];
+  let o = obj;
+  for (let i = 0; i < ks.length - 1; i++){
+    if (typeof o[ks[i]] !== 'object' || o[ks[i]] === null) o[ks[i]] = {};
+    stack.push([o, ks[i]]);
+    o = o[ks[i]];
+  }
+  const last = ks[ks.length - 1];
+  if (val === null || val === undefined) delete o[last];
+  else o[last] = JSON.parse(JSON.stringify(val));
+  // 빈 객체 정리 (Firebase와 동일하게)
+  for (let i = stack.length - 1; i >= 0; i--){
+    const [p, k] = stack[i];
+    if (p[k] && typeof p[k] === 'object' && Object.keys(p[k]).length === 0) delete p[k];
+  }
+}
+
+if (USE_FB){
+  const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
+  const F = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js');
+  const db = F.getDatabase(initializeApp(CFG));
+  const R = c => F.ref(db, 'rooms/' + c);
+  let offset = 0;
+  F.onValue(F.ref(db, '.info/serverTimeOffset'), s => { offset = s.val() || 0; });
+  backend = {
+    mode: 'firebase',
+    now(){ return Date.now() + offset; },
+    sub(code, cb){ return F.onValue(R(code), s => cb(s.val()), err => { console.error(err); toast('서버 연결 오류: ' + err.message); }); },
+    async get(code){ return (await F.get(R(code))).val(); },
+    async set(code, v){ await F.set(R(code), v); },
+    async update(code, patch){ await F.update(R(code), patch); },
+  };
+} else {
+  const KEY = c => 'seatauction:room:' + c;
+  const listeners = {};
+  const read = c => { try { return JSON.parse(localStorage.getItem(KEY(c))); } catch { return null; } };
+  const emit = c => (listeners[c] || new Set()).forEach(f => f(read(c)));
+  window.addEventListener('storage', e => { if (e.key && e.key.startsWith('seatauction:room:')) emit(e.key.slice(17)); });
+  backend = {
+    mode: 'local',
+    now(){ return Date.now(); },
+    sub(code, cb){ (listeners[code] ??= new Set()).add(cb); setTimeout(() => cb(read(code))); return () => listeners[code].delete(cb); },
+    async get(code){ return read(code); },
+    async set(code, v){ if (v === null) localStorage.removeItem(KEY(code)); else localStorage.setItem(KEY(code), JSON.stringify(v)); emit(code); },
+    async update(code, patch){
+      const v = read(code) || {};
+      for (const [p, val] of Object.entries(patch)) setPath(v, p, val);
+      localStorage.setItem(KEY(code), JSON.stringify(v)); emit(code);
+    },
+  };
+}
+
+/* ============================================================
+   공통 도우미
+   ============================================================ */
+const app = document.getElementById('app');
+const overlay = document.getElementById('overlay');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const LS = {
+  get(k, d){ try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+const SS = {
+  get(k){ try { return JSON.parse(sessionStorage.getItem(k)); } catch { return null; } },
+  set(k, v){ try { sessionStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  del(k){ try { sessionStorage.removeItem(k); } catch {} },
+};
+function rand(n){ const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] % n; }
+function shuffle(arr){ const a = arr.slice(); for (let i = a.length - 1; i > 0; i--){ const j = rand(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+let toastTimer;
+function toast(msg){
+  let el = document.querySelector('.toast');
+  if (!el){ el = document.createElement('div'); el.className = 'toast'; document.body.appendChild(el); }
+  el.textContent = msg; clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.remove(), 2600);
+}
+const stonesHTML = (left, total = 7, cls = '') =>
+  `<span class="stones ${cls}" title="남은 코인 ${left}개">${Array.from({length: total}, (_, i) => `<span class="stone ${i < left ? '' : 'used'}"></span>`).join('')}</span>`;
+const bidStones = n => `<span class="stones sm">${Array.from({length: n}, () => '<span class="stone"></span>').join('')}</span>`;
+
+const studentsOf = r => Object.entries(r.students || {}).map(([id, s]) => ({id, ...s})).sort((a, b) => a.order - b.order);
+const seatsOf = r => Object.entries(r.seats || {}).map(([id, s]) => ({id, ...s})).sort((a, b) => a.num - b.num);
+const nameOf = (r, id) => r.students?.[id]?.name ?? '?';
+const ownedBy = (r, id) => seatsOf(r).filter(s => s.owner === id);
+const seatlessOf = r => studentsOf(r).filter(s => ownedBy(r, s.id).length === 0);
+const byOrder = r => (a, b) => (r.students?.[a]?.order ?? 0) - (r.students?.[b]?.order ?? 0);
+const siteURL = () => location.href.split('#')[0].replace(/index\.html$/, '');
+const joinURL = code => location.href.split('#')[0] + '#/join/' + code;
+
+/* ============================================================
+   효과음 (전광판에서만 재생, 소리 파일 없이 Web Audio로 합성)
+   ============================================================ */
+const SND = { ctx: null, on: LS.get('seatauction:sound', true) };
+function audioCtx(){
+  const C = window.AudioContext || window.webkitAudioContext;
+  if (!C) return null;
+  if (!SND.ctx) SND.ctx = new C();
+  if (SND.ctx.state === 'suspended') SND.ctx.resume();
+  return SND.ctx;
+}
+const soundReady = () => !!SND.ctx && SND.ctx.state === 'running';
+const soundOn = () => S.view === 'board' && SND.on && soundReady();
+function tone(freq, dur, { type = 'triangle', vol = 0.18, at = 0 } = {}){
+  const c = audioCtx(); if (!c) return;
+  const t = c.currentTime + at, o = c.createOscillator(), g = c.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(c.destination); o.start(t); o.stop(t + dur + 0.05);
+}
+function sfxTick(){ tone(700 + rand(500), 0.06, { type: 'square', vol: 0.07 }); }
+function sfxFanfare(){
+  [[523, 0], [659, 0.12], [784, 0.24]].forEach(([f, at]) => tone(f, 0.18, { at, vol: 0.2 }));
+  [523, 659, 784, 1047].forEach(f => tone(f, 0.9, { at: 0.4, vol: 0.12 }));
+}
+// 화면을 한 번 누르면 소리가 풀린다 (브라우저 자동재생 정책)
+document.addEventListener('pointerdown', e => { if (e.target.closest('[data-act="toggleSound"]')) return; if (S.view === 'board' && SND.on && !soundReady()){ audioCtx(); setTimeout(render, 100); } });
+
+/* 유찰 시 코인 반환 규칙 */
+const REFUND = { none: '돌려주지 않음', half: '절반 돌려줌', all: '모두 돌려줌' };
+const refundMode = r => r?.meta?.failRefund || 'none';
+const refundOf = (mode, bid) => mode === 'all' ? bid : mode === 'half' ? Math.floor(bid / 2) : 0;
+
+/* 승자 판정: 다른 사람과 겹치지 않은 숫자 중 가장 큰 숫자 */
+function decide(bids){
+  const cnt = {};
+  Object.values(bids).forEach(v => cnt[v] = (cnt[v] || 0) + 1);
+  const uniq = Object.keys(cnt).map(Number).filter(v => cnt[v] === 1);
+  if (!uniq.length) return { winner: '', value: 0, cnt };
+  const value = Math.max(...uniq);
+  return { winner: Object.keys(bids).find(k => Number(bids[k]) === value), value, cnt };
+}
+window.__decide = decide; // 테스트용
+
+/* ============================================================
+   상태 / 라우팅
+   ============================================================ */
+const S = { view: 'home', code: null, room: undefined, unsub: null, modal: null, confirm: null, draft: {}, showBids: false,
+            anim: { seen: undefined, until: 0, timer: null }, rev: { seen: undefined, until: 0 }, cd: {} };
+
+function route(){
+  const parts = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
+  const [view = 'home', code = null] = parts;
+  if (S.unsub){ S.unsub(); S.unsub = null; }
+  Object.assign(S, { view, code, room: undefined, modal: null, confirm: null, draft: {}, showBids: false,
+                     anim: { seen: undefined, until: 0, timer: null }, rev: { seen: undefined, until: 0 }, cd: {} });
+  if (code && ['admin', 'board', 'join'].includes(view)) S.unsub = backend.sub(code, onRoom);
+  render();
+}
+window.addEventListener('hashchange', route);
+
+function onRoom(room){
+  const a = room?.auction;
+  const key = a && a.drawn ? a.drawAt : null;
+  if (S.anim.seen !== undefined && key && key !== S.anim.seen){
+    S.anim.until = Date.now() + 2800;
+    setTimeout(() => { render(); if (soundOn()) sfxFanfare(); }, 2900);
+  }
+  S.anim.seen = key;
+  const rk = room?.revival?.t || null;
+  if (S.rev.seen !== undefined && rk && rk !== S.rev.seen){
+    S.rev.until = Date.now() + 7000;
+    if (soundOn()) sfxFanfare();
+    setTimeout(render, 7100);
+  }
+  S.rev.seen = rk;
+  S.room = room;
+  render();
+}
+
+function render(){
+  const v = S.view;
+  if (v === 'home') renderHome();
+  else if (v === 'setup') renderSetup();
+  else if (!S.code) location.hash = '#/';
+  else if (S.room === undefined) app.innerHTML = `<div class="wrap narrow"><p class="muted">불러오는 중…</p></div>`;
+  else if (S.room === null) app.innerHTML = `<div class="wrap narrow"><div class="card stack"><h2>방을 찾을 수 없어요</h2><p class="muted">방 번호 <b>${esc(S.code)}</b>를 다시 확인해 주세요.</p><a class="btn" href="#/">처음으로</a></div></div>`;
+  else if (v === 'admin') renderAdmin();
+  else if (v === 'board') renderBoard();
+  else if (v === 'join') renderStudent();
+  if (v !== 'setup') renderOverlay();
+  afterRender();
+}
+
+function afterRender(){
+  tickCountdowns();
+  if (Date.now() < S.anim.until && !S.anim.timer){
+    const max = S.room?.meta?.maxBidders || 4;
+    S.anim.timer = setInterval(() => {
+      const chips = [...document.querySelectorAll('.pchip.rolling')];
+      if (Date.now() >= S.anim.until || !chips.length){ clearInterval(S.anim.timer); S.anim.timer = null; return; }
+      chips.forEach(c => c.classList.remove('hot'));
+      shuffle(chips).slice(0, max).forEach(c => c.classList.add('hot'));
+      if (soundOn()) sfxTick();
+    }, 110);
+  }
+}
+
+/* ============================================================
+   클릭 처리
+   ============================================================ */
+const A = {};
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]');
+  if (!el) return;
+  if (el.dataset.act === 'noop') return;
+  const fn = A[el.dataset.act];
+  if (fn){ e.preventDefault(); fn(el.dataset, el, e); }
+});
+const upd = patch => backend.update(S.code, patch).catch(err => { console.error(err); toast('저장 실패: ' + err.message); });
+
+function ask(msg, okLabel = '확인'){
+  return new Promise(res => { S.confirm = { msg, okLabel, res }; renderOverlay(); });
+}
+A.confirmYes = () => { const c = S.confirm; S.confirm = null; renderOverlay(); c?.res(true); };
+A.confirmNo = () => { const c = S.confirm; S.confirm = null; renderOverlay(); c?.res(false); };
+
+/* ============================================================
+   자리표
+   ============================================================ */
+/* 짝 묶음(통로): group칸마다 통로 칸을 끼워 넣는다 */
+function gridTemplate(cols, group, aisle = '22px'){
+  const t = [];
+  for (let c = 0; c < cols; c++){ t.push('minmax(0,1fr)'); if (group > 1 && (c + 1) % group === 0 && c < cols - 1) t.push(aisle); }
+  return t.join(' ');
+}
+const aisleAfter = (c, cols, group) => group > 1 && (c + 1) % group === 0 && c < cols - 1;
+
+function seatMap(r, { me = null, clickable = false, size = '' } = {}){
+  const L = r.layout; const G = +L.group || 1;
+  const pos = {};
+  seatsOf(r).forEach(s => pos[s.r * L.cols + s.c] = s);
+  const cur = r.auction && r.auction.stage !== 'result' ? r.auction.seat : null;
+  let h = `<div class="desk">전 자 칠 판</div><div class="map ${size}" style="grid-template-columns:${gridTemplate(L.cols, G, size === 'big' ? '34px' : size === 'small' ? '12px' : '22px')}">`;
+  for (let i = 0; i < L.rows * L.cols; i++){
+    const s = pos[i];
+    const tail = aisleAfter(i % L.cols, L.cols, G) ? '<div class="aisle"></div>' : '';
+    if (!s){ h += `<div class="cell gap"></div>${tail}`; continue; }
+    const cls = ['cell', 'seat'];
+    if (s.owner) cls.push('taken');
+    else if (s.status === 'skipped') cls.push('skipped');
+    else if (s.status === 'failed') cls.push('failed');
+    if (s.id === cur) cls.push('current');
+    if (me && s.owner === me) cls.push('mine');
+    if (clickable) cls.push('clickable');
+    const label = s.owner ? esc(nameOf(r, s.owner)) : s.id === cur ? '경매 중' : s.status === 'skipped' ? '보류' : s.status === 'failed' ? '유찰' : '';
+    h += `<div class="${cls.join(' ')}" ${clickable ? `data-act="seatClick" data-id="${s.id}"` : ''}><span class="num">${s.num}</span><span class="who">${label}</span></div>${tail}`;
+  }
+  return h + `</div><div class="legend"><span><i style="background:var(--accent-soft);border-color:#b9d8c6"></i>주인 있음</span><span><i style="background:var(--gold-soft);border-color:var(--gold)"></i>경매 중</span><span><i style="border-style:dashed"></i>유찰(나중에 다시)</span><span><i></i>빈 자리 / 보류</span></div>`;
+}
+
+/* 참여자 공개 블록 (추첨 애니메이션 포함) */
+function participantsBlock(r, { showSubmitted = false } = {}){
+  const a = r.auction;
+  const pool = Object.keys(a.pool || a.selected || {}).sort(byOrder(r));
+  const sel = a.selected || {};
+  const rolling = Date.now() < S.anim.until;
+  const max = r.meta.maxBidders;
+  if (a.stage === 'draw'){
+    return `<div class="stack"><div class="stage">${pool.length}명이 신청했어요! 추첨으로 ${max}명을 뽑아요</div>
+      <div class="chips">${pool.map(id => `<span class="pchip">${esc(nameOf(r, id))}</span>`).join('')}</div></div>`;
+  }
+  const head = a.drawn
+    ? (rolling ? `${pool.length}명이 신청했어요! ${max}명을 뽑는 중…` : `${pool.length}명 신청 → 추첨으로 ${max}명 선정`)
+    : `참여자 ${pool.length}명`;
+  const chips = pool.map(id => {
+    if (rolling) return `<span class="pchip rolling">${esc(nameOf(r, id))}</span>`;
+    const done = a.bids?.[id], folded = a.folds?.[id];
+    if (sel[id] && folded) return `<span class="pchip folded">${esc(nameOf(r, id))}<span class="ok">기권</span></span>`;
+    return `<span class="pchip ${sel[id] ? 'in' : 'out'}">${esc(nameOf(r, id))}${showSubmitted && sel[id] ? `<span class="ok">${done ? '✔' : '…'}</span>` : ''}</span>`;
+  }).join('');
+  return `<div class="stack"><div class="stage">${head}</div><div class="chips">${chips}</div></div>`;
+}
+
+/* 참여 신청 카운트다운 */
+const entrySecOf = r => (r.meta.entrySec == null ? 20 : +r.meta.entrySec);
+const remainMs = a => (a?.deadline ? a.deadline - backend.now() : Infinity);
+const entryOpen = a => a && a.stage === 'entry' && remainMs(a) > 0;
+const bidSecOf = r => (r.meta.bidSec == null ? 30 : +r.meta.bidSec);
+const bidOpen = a => a && a.stage === 'bidding' && remainMs(a) > 0;
+const DRAW_MS = 3000; // 추첨 애니메이션 시간만큼 뒤에 카운트다운 시작
+function bidDeadline(r, drawn){
+  const sec = bidSecOf(r); if (!sec) return { 'auction/deadline': null, 'auction/openAt': null };
+  const start = backend.now() + (drawn ? DRAW_MS : 0);
+  return { 'auction/openAt': start, 'auction/deadline': start + sec * 1000 };
+}
+function countdownHTML(a, { big = false } = {}){
+  if (!a?.deadline) return '';
+  const total = a.deadline - (a.openAt || a.deadline - 20000);
+  return `<div class="cd ${big ? 'big' : ''}" data-deadline="${a.deadline}" data-total="${total}">
+    <div class="cd-num"></div><div class="cd-bar"><i></i></div></div>`;
+}
+function tickCountdowns(){
+  document.querySelectorAll('[data-deadline]').forEach(el => {
+    const rem = +el.dataset.deadline - backend.now(), sec = Math.max(0, Math.ceil(rem / 1000));
+    el.querySelector('.cd-num').textContent = rem > 0 ? `${sec}초` : '시간 끝!';
+    el.querySelector('.cd-bar i').style.width = Math.max(0, Math.min(100, rem / +el.dataset.total * 100)) + '%';
+    if (rem > +el.dataset.total){ el.querySelector('.cd-num').textContent = `${Math.round(+el.dataset.total / 1000)}초`; }
+    el.classList.toggle('hurry', rem > 0 && sec <= 5);
+    el.classList.toggle('over', rem <= 0);
+  });
+  const a = S.room?.auction;
+  if ((a?.stage === 'entry' || a?.stage === 'bidding') && a.deadline){
+    const rem = remainMs(a), sec = Math.ceil(rem / 1000);
+    if (rem > 0 && sec <= 3 && S.cd.beeped !== a.deadline + ':' + sec){ S.cd.beeped = a.deadline + ':' + sec; if (soundOn()) tone(660, 0.12, { type: 'square', vol: 0.08 }); }
+    if (rem <= 0 && S.cd.ended !== a.deadline){ S.cd.ended = a.deadline; if (soundOn()) tone(440, 0.5, { type: 'square', vol: 0.1 }); render(); }
+  }
+}
+setInterval(tickCountdowns, 200);
+
+/* 2라운드: 한 바퀴(모든 자리를 한 번씩 경매)가 끝났는지 */
+const bonusN = r => (r.meta.bonus2 == null ? 2 : +r.meta.bonus2);
+const lapDone = r => seatsOf(r).every(s => s.owner || (s.status && s.status !== 'open'));
+function round2Gains(r){
+  const cap = r.meta.stones, n = bonusN(r);
+  return seatlessOf(r).map(s => ({ id: s.id, name: s.name, from: s.stones, gain: Math.max(0, Math.min(cap, s.stones + n) - s.stones) }));
+}
+
+/* 패자부활전·지원금 알림 (전광판 7초) */
+function revivalBanner(r, { me = null, big = false } = {}){
+  const v = r.revival;
+  if (!v || Date.now() >= S.rev.until) return '';
+  const ids = Object.keys(v.ids || {}).sort(byOrder(r));
+  const mine = me && v.ids?.[me];
+  if (v.type === 'round2'){
+    if (me) return '';
+    return `<div class="revival ${big ? 'big' : ''}">
+      <div class="rv-title">지원금 배부!</div>
+      <div>자비로운 선생님이 자리 없는 친구들에게 코인 <b>+${v.n}개</b>를 주셨습니다. <b>찬양하세요!</b> <span class="small">(최대 ${r.meta.stones}개)</span><br>${ids.map(id => `<b>${esc(nameOf(r, id))}</b>`).join(', ')}</div>
+    </div>`;
+  }
+  return `<div class="revival ${big ? 'big' : ''}">
+    <div class="rv-title">패자부활전!</div>
+    <div>${mine ? `선생님이 나에게 코인 <b>${v.n}개</b>를 주셨어요! 다시 도전해 봐요.` : `${ids.map(id => `<b>${esc(nameOf(r, id))}</b>`).join(', ')} 친구에게 코인 <b>${v.n}개</b>씩!`}</div>
+  </div>`;
+}
+
+/* 결과 블록 */
+function resultBlock(r){
+  const a = r.auction, res = a.result || {};
+  const bids = res.bids || {};
+  const num = r.seats[a.seat]?.num;
+  const cnt = {}; Object.values(bids).forEach(v => cnt[v] = (cnt[v] || 0) + 1);
+  const rows = Object.entries(bids).sort((x, y) => y[1] - x[1] || byOrder(r)(x[0], y[0]));
+  const folds = Object.keys(res.folds || {}).sort(byOrder(r));
+  const msg = res.winner
+    ? `<b>${esc(nameOf(r, res.winner))}</b> 학생이 <b>${num}번 자리</b>를 가져갔어요!`
+    : !rows.length
+    ? `모두 기권해서 <b>${num}번 자리</b>는 아무도 가져가지 못했어요.<br><span class="muted small">이 자리는 나중에 다시 경매해요.</span>`
+    : `겹치지 않은 숫자가 없어서 <b>${num}번 자리</b>는 아무도 가져가지 못했어요.<br><span class="muted small">이 자리는 나중에 다시 경매해요.</span>`;
+  return `<div class="stack">
+    <div class="result-msg">${msg}</div>
+    <table><thead><tr><th>학생</th><th>건 코인</th><th></th></tr></thead><tbody>
+    ${rows.map(([id, v]) => `<tr class="${id === res.winner ? 'win' : cnt[v] > 1 ? 'dup' : ''}"><td>${esc(nameOf(r, id))}</td><td>${bidStones(v)} <b>${v}</b></td><td>${id === res.winner ? '<span class="pill">낙찰</span>' : cnt[v] > 1 ? '<span class="pill red">겹침</span>' : ''}</td></tr>`).join('')}
+    ${folds.map(id => `<tr class="fold"><td>${esc(nameOf(r, id))}</td><td>기권 <span class="small">(코인 ${res.folds[id]}개 냄)</span></td><td><span class="pill red">다이</span></td></tr>`).join('')}
+    </tbody></table>
+    <p class="muted small">${!rows.length ? '기권한 학생은 코인 1개를 냈어요.' : res.winner ? '경매에 참여한 학생은 모두 건 코인을 반납했어요.' + (folds.length ? ' 기권한 학생은 코인 1개를 냈어요.' : '')
+      : { none: '모두 겹쳐서 유찰! 건 코인은 돌려받지 못해요.', half: '모두 겹쳐서 유찰! 건 코인의 절반(내림)을 돌려받아요.', all: '모두 겹쳐서 유찰! 건 코인은 모두 돌려받아요.' }[refundMode(r)]}</p>
+  </div>`;
+}
+
+/* ============================================================
+   게임 규칙 요약 카드 (방 설정값을 그대로 반영)
+   ============================================================ */
+function rulesList(r){
+  const m = r.meta, n = m.stones, max = m.maxBidders, es = entrySecOf(r), bs = bidSecOf(r), bonus = bonusN(r);
+  const refund = { none: '건 코인은 돌려받지 못해요', half: '건 코인의 절반(내림)을 돌려받아요', all: '건 코인을 모두 돌려받아요' }[refundMode(r)];
+  return [
+    ['시작', `모두 코인 <b>${n}개</b>로 시작해요. 코인은 누구도 <b>${n}개를 넘을 수 없어요.</b>`],
+    ['참여 신청', `선생님이 자리를 고르면 ${es ? `<b>${es}초</b> 안에 ` : ''}<b>참여하기</b> 또는 <b>참가하지 않기</b>를 골라요. 누가 신청했는지는 비밀!`],
+    ['추첨', `신청자가 <b>${max}명</b>을 넘으면 추첨으로 ${max}명을 뽑아요.`],
+    ['코인 걸기', `뽑힌 친구는 ${bs ? `<b>${bs}초</b> 안에 ` : ''}코인 <b>1~${Math.min(7, n)}개</b>를 걸어요.`],
+    ['승자', `<b>다른 친구와 겹치지 않은 숫자</b> 중 가장 큰 숫자를 건 친구가 자리를 가져가요.<br><span class="muted">예) 5, 5, 4, 1 → 5는 겹쳐서 무효! 4를 건 친구가 이겨요.</span>`],
+    ['코인 내기', `이기든 지든 <b>건 코인은 모두 내요.</b> 모두 겹쳐서 아무도 못 가져가면 <b>유찰</b>, ${refund}.`],
+    ['기권(다이)', `코인을 거는 대신 <b>기권</b>하면 코인 <b>1개</b>를 내고 빠져요. 시간 안에 안 걸어도 기권이에요.`],
+    ...(bonus ? [['지원금', `모든 자리를 한 번씩 경매하고 나면, <b>자리가 없는 친구</b>에게 코인 <b>${bonus}개</b>! (최대 ${n}개까지)`]] : []),
+    ['자리 정리', `자리를 여러 개 얻으면 앉을 자리와 <b>자리 없는 친구에게 줄 자리</b>를 선생님께 말해요.`],
+    ['마지막', `끝까지 자리가 없는 친구는 <b>가위바위보</b>로 남은 자리를 골라요.`],
+  ];
+}
+function rulesCard(r, { big = false } = {}){
+  return `<div class="rules ${big ? 'big' : ''}"><h2>게임 규칙</h2><ol>
+    ${rulesList(r).map(([t, d]) => `<li><span class="rt">${t}</span><span>${d}</span></li>`).join('')}</ol></div>`;
+}
+A.toggleRules = () => { S.showRules = !S.showRules; render(); };
+
+/* ============================================================
+   처음 화면
+   ============================================================ */
+const demoNote = () => backend.mode === 'local'
+  ? `<div class="demo noprint"><b>체험 모드</b> — 아직 Firebase가 연결되지 않아 이 컴퓨터의 같은 브라우저 탭끼리만 연결돼요. 학생 기기로 하려면 config.js를 설정하세요.</div>` : '';
+
+function renderHome(){
+  const mine = LS.get('seatauction:admin', {});
+  const list = Object.entries(mine).sort((a, b) => b[1].t - a[1].t);
+  const fmt = t => { const d = new Date(t); return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+  app.innerHTML = `<div class="wrap narrow stack">
+    ${demoNote()}
+    <div><h1>자리 경매</h1><p class="muted">코인 7개로 원하는 자리를 차지해 보세요.</p></div>
+    <div class="card stack">
+      <h3>학생 입장</h3>
+      <form class="row" id="joinForm">
+        <input class="input" id="joinCode" inputmode="numeric" maxlength="4" placeholder="방 번호 4자리" style="flex:1;font-size:20px;letter-spacing:.2em">
+        <button class="btn primary big">입장</button>
+      </form>
+    </div>
+    <div class="card stack">
+      <h3>선생님</h3>
+      <a class="btn primary big" href="#/setup">새 경매 만들기</a>
+      ${list.length ? `<div class="stack"><div class="row spread"><span class="muted small">내가 만든 방 ${list.length}개</span>
+        ${list.length > 1 ? `<button class="btn danger sm" data-act="deleteAll">모두 삭제</button>` : ''}</div>${list.map(([c, v]) => `
+        <div class="row spread" style="border-top:1px solid var(--line);padding-top:10px"><span><b>${esc(c)}</b> <span class="muted">${esc(v.title || '제목 없음')}</span> <span class="muted small">${fmt(v.t)}</span></span>
+        <span class="row"><a class="btn sm" href="#/admin/${c}">관리자</a><a class="btn sm" href="#/board/${c}" target="_blank">전광판</a><button class="btn danger sm" data-act="deleteRoom" data-code="${c}">삭제</button></span></div>`).join('')}</div>` : ''}
+    </div>
+  </div>`;
+  document.getElementById('joinForm').onsubmit = e => {
+    e.preventDefault();
+    const c = document.getElementById('joinCode').value.trim();
+    if (/^\d{4}$/.test(c)) location.hash = '#/join/' + c; else toast('방 번호 4자리를 입력하세요');
+  };
+}
+
+/* ============================================================
+   새 경매 만들기
+   ============================================================ */
+function parseNames(t){ return t.split(/[\n,]/).map(s => s.trim()).filter(Boolean); }
+function renderSetup(){
+  const last = LS.get('seatauction:lastSetup', null);
+  const st = S.setup = S.setup || Object.assign({ title: '', names: '', stones: 7, max: 4, failRefund: 'none', bonus2: 2, entrySec: 20, bidSec: 30, rows: 3, cols: 6, group: 2, cells: '' }, last || {});
+  if (st.entrySec == null) st.entrySec = 20;
+  if (st.bidSec == null) st.bidSec = 30;
+  if (st.bonus2 == null) st.bonus2 = 2;
+  if (!st.v2){ st.max = 4; st.v2 = true; }
+  if (!st.group) st.group = 2;
+  if (st.cells.length !== st.rows * st.cols) st.cells = '.'.repeat(st.rows * st.cols);
+  app.innerHTML = `<div class="wrap stack" style="max-width:900px">
+    ${demoNote()}
+    <div class="row spread"><h1>새 경매 만들기</h1><a class="btn" href="#/">처음으로</a></div>
+    <div class="card stack">
+      <div class="field"><label>제목 (선택)</label><input class="input" id="fTitle" placeholder="예: 6학년 3반 10월 자리 경매" value="${esc(st.title)}"></div>
+      <div class="field"><label>학생 이름 <span class="muted small">(한 줄에 한 명, 또는 쉼표로 구분)</span></label>
+        <textarea class="input" id="fNames" placeholder="김민수&#10;이서연&#10;박지훈">${esc(st.names)}</textarea>
+        <div class="muted small" id="fCount"></div></div>
+      <div class="row">
+        <div class="field" style="width:150px"><label>1인당 코인</label><input class="input" id="fStones" type="number" min="1" max="20" value="${st.stones}"></div>
+        <div class="field" style="width:190px"><label>한 자리 최대 참여 인원</label><input class="input" id="fMax" type="number" min="2" max="20" value="${st.max}"></div>
+        <div class="field" style="width:230px"><label>모두 겹쳐 유찰됐을 때 건 코인</label><select class="input" id="fRefund">
+          ${Object.entries(REFUND).map(([k, v]) => `<option value="${k}" ${st.failRefund === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
+        <div class="field" style="width:200px"><label>참여 신청 시간 (초)</label><input class="input" id="fSec" type="number" min="0" max="120" value="${st.entrySec}">
+          <span class="muted small">0이면 시간 제한 없음</span></div>
+        <div class="field" style="width:200px"><label>코인 거는 시간 (초)</label><input class="input" id="fBidSec" type="number" min="0" max="180" value="${st.bidSec}">
+          <span class="muted small">0이면 시간 제한 없음</span></div>
+        <div class="field" style="width:240px"><label>지원금 (자리 없는 학생에게)</label><input class="input" id="fBonus" type="number" min="0" max="7" value="${st.bonus2}">
+          <span class="muted small">0이면 지원금 버튼 없음 · 받아도 처음 코인 개수를 넘지 않아요</span></div>
+      </div>
+    </div>
+    <div class="card stack">
+      <div class="row spread"><h3>자리 배치</h3><span id="fSeatCount" class="pill"></span></div>
+      <p class="muted small" style="margin:0">칸을 누르면 자리 ↔ 통로가 바뀌어요. 번호는 전자칠판 쪽 왼쪽부터 순서대로 매겨져요. 자리 수는 학생 수와 같아야 해요.</p>
+      <div class="row">
+        <label class="row small">가로(한 줄 자리 수) <input class="input" id="fCols" type="number" min="1" max="12" value="${st.cols}" style="width:74px"></label>
+        <label class="row small">세로(줄 수) <input class="input" id="fRows" type="number" min="1" max="12" value="${st.rows}" style="width:74px"></label>
+        <label class="row small">짝 묶음 <select class="input" id="fGroup" style="width:auto">
+          ${[1,2,3,4].map(g => `<option value="${g}" ${+st.group === g ? 'selected' : ''}>${g === 1 ? '통로 없음' : g + '자리씩 + 통로'}</option>`).join('')}</select></label>
+        <button class="btn sm" id="fAuto">학생 수에 맞춰 자동 채우기</button>
+        <button class="btn sm" id="fClear">모두 지우기</button>
+      </div>
+      <div class="desk">전 자 칠 판</div>
+      <div class="editor" id="fEditor"></div>
+    </div>
+    <div class="row" style="justify-content:flex-end"><span class="muted small" id="fWarn"></span><button class="btn primary big" id="fCreate">방 만들기</button></div>
+  </div>`;
+  const $ = id => document.getElementById(id);
+  const save = () => LS.set('seatauction:lastSetup', { names: st.names, stones: st.stones, max: st.max, v2: true, failRefund: st.failRefund, bonus2: st.bonus2, entrySec: st.entrySec, bidSec: st.bidSec, rows: st.rows, cols: st.cols, group: st.group, cells: st.cells });
+  const drawEditor = () => {
+    const ed = $('fEditor'); ed.style.gridTemplateColumns = gridTemplate(st.cols, +st.group, '22px');
+    let n = 0;
+    ed.innerHTML = [...st.cells].map((c, i) => (c === 'S' ? `<div class="s" data-i="${i}">${++n}</div>` : `<div data-i="${i}"></div>`)
+      + (aisleAfter(i % st.cols, st.cols, +st.group) ? '<span class="aisle"></span>' : '')).join('');
+    const names = parseNames(st.names).length, seats = n;
+    $('fCount').textContent = `학생 ${names}명`;
+    $('fSeatCount').textContent = `자리 ${seats}개 / 학생 ${names}명`;
+    $('fSeatCount').className = 'pill ' + (seats === names && names > 1 ? '' : 'red');
+    const ok = seats === names && names >= 2;
+    $('fCreate').disabled = !ok;
+    $('fWarn').textContent = ok ? '' : names < 2 ? '학생 이름을 2명 이상 입력하세요' : '자리 수와 학생 수를 맞춰 주세요';
+  };
+  const resize = () => {
+    const r = Math.max(1, Math.min(12, +$('fRows').value || 1)), c = Math.max(1, Math.min(12, +$('fCols').value || 1));
+    let cells = '';
+    for (let i = 0; i < r; i++) for (let j = 0; j < c; j++) cells += (i < st.rows && j < st.cols) ? st.cells[i * st.cols + j] : '.';
+    Object.assign(st, { rows: r, cols: c, cells }); save(); drawEditor();
+  };
+  $('fEditor').onclick = e => {
+    const d = e.target.closest('[data-i]'); if (!d) return;
+    const i = +d.dataset.i; st.cells = st.cells.slice(0, i) + (st.cells[i] === 'S' ? '.' : 'S') + st.cells.slice(i + 1);
+    save(); drawEditor();
+  };
+  $('fRows').oninput = resize; $('fCols').oninput = resize;
+  $('fGroup').onchange = e => { st.group = +e.target.value; save(); drawEditor(); };
+  $('fTitle').oninput = e => st.title = e.target.value;
+  $('fNames').oninput = e => { st.names = e.target.value; save(); drawEditor(); };
+  $('fStones').oninput = e => { st.stones = Math.max(1, +e.target.value || 7); save(); };
+  $('fMax').oninput = e => { st.max = Math.max(2, +e.target.value || 4); save(); };
+  $('fRefund').onchange = e => { st.failRefund = e.target.value; save(); };
+  $('fBidSec').oninput = e => { st.bidSec = Math.max(0, Math.min(180, Math.round(+e.target.value || 0))); save(); };
+  $('fSec').oninput = e => { st.entrySec = Math.max(0, Math.min(120, Math.round(+e.target.value || 0))); save(); };
+  $('fBonus').oninput = e => { st.bonus2 = Math.max(0, Math.min(7, +e.target.value || 0)); save(); };
+  $('fAuto').onclick = () => {
+    const n = parseNames(st.names).length || 1;
+    const rows = Math.ceil(n / st.cols); st.rows = rows; $('fRows').value = rows;
+    st.cells = 'S'.repeat(n) + '.'.repeat(rows * st.cols - n); save(); drawEditor();
+  };
+  $('fClear').onclick = () => { st.cells = '.'.repeat(st.rows * st.cols); save(); drawEditor(); };
+  $('fCreate').onclick = createRoom;
+  drawEditor();
+}
+
+async function createRoom(){
+  const st = S.setup; const names = parseNames(st.names);
+  const btn = document.getElementById('fCreate'); btn.disabled = true; btn.textContent = '만드는 중…';
+  try {
+    let code;
+    for (let t = 0; t < 30; t++){ code = String(1000 + rand(9000)); if (!(await backend.get(code))) break; }
+    const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    const students = {}; names.forEach((n, i) => students['st' + (i + 1)] = { name: n, stones: st.stones, order: i });
+    const seats = {}; let num = 0;
+    for (let i = 0; i < st.rows; i++) for (let j = 0; j < st.cols; j++)
+      if (st.cells[i * st.cols + j] === 'S'){ num++; seats['s' + num] = { num, r: i, c: j, owner: '', status: 'open' }; }
+    const room = { meta: { title: st.title, createdAt: Date.now(), stones: st.stones, maxBidders: st.max, failRefund: st.failRefund || 'none', bonus2: +st.bonus2 || 0, entrySec: +st.entrySec || 0, bidSec: +st.bidSec || 0, adminToken: token },
+                   layout: { rows: st.rows, cols: st.cols, group: +st.group || 1, cells: st.cells }, students, seats, phase: 'lobby' };
+    await backend.set(code, room);
+    const mine = LS.get('seatauction:admin', {}); mine[code] = { token, title: st.title, t: Date.now() }; LS.set('seatauction:admin', mine);
+    S.setup = null;
+    location.hash = '#/admin/' + code;
+  } catch (err){ console.error(err); toast('방을 만들지 못했어요: ' + err.message); btn.disabled = false; btn.textContent = '방 만들기'; }
+}
+
+/* ============================================================
+   관리자 화면
+   ============================================================ */
+const isAdmin = () => (LS.get('seatauction:admin', {})[S.code]?.token) === S.room?.meta?.adminToken;
+const PHASE = { lobby: '입장 대기', auction: '경매 중', arrange: '자리 정리', done: '완료' };
+
+function nextSeatId(r){
+  const empty = seatsOf(r).filter(s => !s.owner);
+  const open = empty.filter(s => s.status === 'open' || !s.status);
+  return (open[0] || empty[0])?.id;
+}
+
+function renderAdmin(){
+  const r = S.room;
+  if (!isAdmin()){
+    app.innerHTML = `<div class="wrap narrow"><div class="card stack"><h2>관리자 권한이 없어요</h2><p class="muted">이 방을 만든 컴퓨터(브라우저)에서만 관리할 수 있어요.</p><div class="row"><a class="btn" href="#/board/${S.code}">전광판 보기</a><a class="btn" href="#/">처음으로</a></div></div></div>`;
+    return;
+  }
+  const students = studentsOf(r);
+  const joined = students.filter(s => s.joined).length;
+  let control = '';
+  if (r.phase === 'lobby') control = adminLobby(r, joined, students.length);
+  else if (r.phase === 'auction') control = adminAuction(r);
+  else if (r.phase === 'arrange') control = adminArrange(r);
+  else control = adminDone(r);
+
+  app.innerHTML = `<div class="wrap">
+    ${demoNote()}
+    <div class="topbar noprint">
+      <div class="row"><h2 style="margin:0">${esc(r.meta.title || '자리 경매')}</h2><span class="pill gold">${PHASE[r.phase]}${r.phase === 'auction' && r.round2 ? ' · 지원금 배부함' : ''}</span></div>
+      <div class="row"><span class="muted small">방 번호</span><span class="code">${esc(S.code)}</span>
+        <button class="btn sm" data-act="showQR">학생 입장 안내</button>
+        <a class="btn sm" href="#/board/${S.code}" target="_blank">전광판 열기 ↗</a>
+        <a class="btn sm" href="#/">처음</a><button class="btn danger sm" data-act="deleteRoom" data-code="${esc(S.code)}">방 삭제</button></div>
+    </div>
+    <div class="grid2">
+      <div class="card">${seatMap(r, { clickable: r.phase !== 'lobby', size: '' })}
+        <p class="muted small noprint" style="margin:10px 0 0">${r.phase === 'auction' ? '빈 자리를 누르면 그 자리 경매를 시작해요. 주인 있는 자리를 누르면 직접 고칠 수 있어요.' : r.phase === 'lobby' ? '' : '자리를 누르면 학생을 직접 배정하거나 비울 수 있어요.'}</p></div>
+      <div class="stack noprint">
+        <div class="card stack">${control}</div>
+        ${studentTable(r)}
+        ${historyCard(r)}
+      </div>
+    </div>
+  </div>`;
+}
+
+function adminLobby(r, joined, total){
+  return `<h3>학생 입장 대기</h3>
+    <div class="stack">
+      <div>학생들은 아래 주소에 들어가서 방 번호 <b>${esc(S.code)}</b>를 입력하고 자기 이름을 고르면 돼요.</div>
+      <div><span class="siteurl">${esc(siteURL())}</span></div>
+      <div class="pill">${joined} / ${total}명 입장</div>
+    </div>
+    <button class="btn primary big" data-act="startGame">경매 시작 ▶</button>
+    <p class="muted small" style="margin:0">모든 학생이 들어오지 않아도 시작할 수 있어요.</p>
+    <div class="hint">전광판과 학생 화면에 <b>게임 규칙 카드</b>가 떠 있어요. 시작하기 전에 함께 읽어 보세요. 경매 중에도 전광판의 <b>규칙 보기</b>로 다시 띄울 수 있어요.</div>
+    <details><summary class="small muted" style="cursor:pointer">규칙 카드 미리 보기</summary><div style="margin-top:8px">${rulesCard(r)}</div></details>`;
+}
+
+function adminAuction(r){
+  const a = r.auction;
+  const withStones = studentsOf(r).filter(s => s.stones > 0).length;
+  const emptySeats = seatsOf(r).filter(s => !s.owner).length;
+  const brokeN = studentsOf(r).filter(s => s.stones <= 0).length;
+  const r2 = bonusN(r) > 0 && !r.round2 && lapDone(r) && seatlessOf(r).length && (!a || a.stage === 'result');
+  const tail = `${r2 ? `<div class="hint" style="background:var(--gold-soft);color:#7a4f0e">모든 자리를 한 번씩 경매했어요. 자리 없는 학생에게 <b>지원금</b>을 줄 수 있어요. (학생들에게는 보이지 않아요)</div>
+      <button class="btn gold big" data-act="round2Open">지원금 배부 ▶</button>` : ''}
+    <div class="row spread">${brokeN ? `<button class="btn sm" data-act="reviveOpen">패자부활전 (파산 ${brokeN}명)</button>` : '<span></span>'}<button class="btn sm" data-act="toArrange">자리 정리 단계로 →</button></div>`;
+  if (!a){
+    const nx = nextSeatId(r);
+    return `<h3>다음 경매</h3>
+      <div class="hint">빈 자리 <b>${emptySeats}</b>개 · 코인이 남은 학생 <b>${withStones}</b>명</div>
+      ${nx && withStones ? `<button class="btn primary big" data-act="startAuction" data-id="${nx}">${r.seats[nx].num}번 자리 경매 시작 ▶</button>
+        <p class="muted small" style="margin:0">또는 자리표에서 원하는 빈 자리를 누르세요.</p>`
+      : `<div class="hint">${!nx ? '빈 자리가 없어요.' : '코인이 남은 학생이 없어요.'} 자리 정리 단계로 넘어가세요.</div>`}
+      ${tail}`;
+  }
+  const num = r.seats[a.seat].num;
+  const title = `<div class="row spread"><div><div class="stage">${a.stage === 'entry' ? '참여 신청 받는 중' : a.stage === 'draw' ? '추첨 대기' : a.stage === 'bidding' ? '코인 거는 중' : '결과'}</div><div class="bignum">${num}번</div></div></div>`;
+  if (a.stage === 'entry'){
+    const ent = Object.keys(a.entrants || {}).sort(byOrder(r));
+    const passes = Object.keys(a.passes || {}).sort(byOrder(r));
+    const eligible = studentsOf(r).filter(s => s.stones > 0);
+    const answered = eligible.filter(s => a.entrants?.[s.id] || a.passes?.[s.id]).length;
+    const waiting = eligible.filter(s => !a.entrants?.[s.id] && !a.passes?.[s.id]);
+    const max = r.meta.maxBidders;
+    const open = entryOpen(a);
+    return `${title}
+      ${a.deadline ? `<div class="row" style="gap:8px">${countdownHTML(a)}<button class="btn sm" data-act="addTime">+10초</button></div>` : ''}
+      ${a.deadline && !open ? `<div class="hint" style="background:var(--gold-soft);color:#7a4f0e"><b>신청 시간이 끝났어요.</b> 고르지 않은 학생은 참가하지 않은 것으로 처리돼요.</div>` : ''}
+      <div class="hint">학생 화면·전광판에는 누가 신청했는지 보이지 않아요. (선생님만 보는 정보)</div>
+      <div class="row"><span class="pill ${answered === eligible.length ? '' : 'gray'}">응답 ${answered} / ${eligible.length}명${answered === eligible.length && open ? ' · 모두 골랐어요!' : ''}</span>
+        <span class="muted small">참가 안 함 ${passes.length}명${waiting.length ? (open ? ` · 아직 고르는 중: ${waiting.map(s => esc(s.name)).join(', ')}` : ` · 시간 초과(참가 안 함): ${waiting.map(s => esc(s.name)).join(', ')}`) : ''}</span></div>
+      <div><div class="muted small">신청한 학생 ${ent.length}명${ent.length > max ? ` → 진행하면 ${max}명을 무작위로 뽑아요` : ''}</div>
+      <div class="chips" style="margin-top:6px">${ent.length ? ent.map(id => `<span class="pchip in">${esc(nameOf(r, id))}</span>`).join('') : '<span class="muted">아직 없어요</span>'}</div></div>
+      <div class="row">${ent.length ? `<button class="btn primary big" data-act="proceed">경매 진행 (참여자 공개) ▶</button>` : `<button class="btn big" data-act="proceed">아무도 없음 · 넘어가기</button>`}
+      <button class="btn danger" data-act="cancelAuction">취소</button></div>${tail}`;
+  }
+  if (a.stage === 'draw'){
+    return `${title}${participantsBlock(r)}
+      <div class="hint">참여자가 공개됐어요. 준비되면 추첨하기를 눌러 주세요.</div>
+      <div class="row"><button class="btn gold big" data-act="draw">추첨하기 ▶</button>
+      <button class="btn danger" data-act="cancelAuction">취소</button></div>${tail}`;
+  }
+  if (a.stage === 'bidding'){
+    const sel = Object.keys(a.selected || {});
+    const done = sel.filter(id => a.bids?.[id] && !a.folds?.[id]).length;
+    const foldN = sel.filter(id => a.folds?.[id]).length;
+    const decided = done + foldN;
+    const rolling = Date.now() < S.anim.until;
+    const open = bidOpen(a);
+    return `${title}${participantsBlock(r, { showSubmitted: true })}
+      ${rolling ? '' : `${a.deadline ? `<div class="row" style="gap:8px">${countdownHTML(a)}<button class="btn sm" data-act="addTime">+10초</button></div>` : ''}
+      ${a.deadline && !open && decided < sel.length ? `<div class="hint" style="background:var(--gold-soft);color:#7a4f0e"><b>시간이 끝났어요.</b> 코인을 걸지 않은 학생(${sel.filter(id => !a.bids?.[id] && !a.folds?.[id]).map(id => esc(nameOf(r, id))).join(', ')})은 기권으로 처리돼요(코인 1개 냄).</div>` : ''}
+      <div class="pill ${decided === sel.length ? '' : 'gray'}">코인 건 학생 ${done} / ${sel.length}${foldN ? ` · 기권 ${foldN}` : ''}${decided === sel.length && sel.length ? ' · 모두 결정했어요!' : ''}</div>
+      ${S.showBids ? `<div class="small">${sel.map(id => `${esc(nameOf(r, id))}: <b>${a.bids?.[id] ?? '-'}</b>`).join(' · ')}</div>` : ''}
+      <div class="row"><button class="btn gold big" data-act="reveal" ${decided || (a.deadline && !open) ? '' : 'disabled'}>결과 공개 ▶</button>
+        <button class="btn sm" data-act="toggleBids">${S.showBids ? '숫자 가리기' : '숫자 미리 보기'}</button>
+        <button class="btn danger sm" data-act="cancelAuction">취소</button></div>`}${tail}`;
+  }
+  const nx = nextSeatId(r);
+  return `${title}${resultBlock(r)}
+    <div class="row">${nx ? `<button class="btn primary big" data-act="startAuction" data-id="${nx}">다음: ${r.seats[nx].num}번 자리 ▶</button>` : ''}
+    <button class="btn" data-act="clearAuction">자리표에서 고르기</button></div>${tail}`;
+}
+
+function adminArrange(r){
+  const multi = studentsOf(r).filter(s => ownedBy(r, s.id).length >= 2);
+  const none = seatlessOf(r);
+  const empty = seatsOf(r).filter(s => !s.owner);
+  return `<h3>자리 정리</h3>
+    <div class="hint">자리를 여러 개 가진 학생이 <b>앉을 자리</b>와 <b>줄 자리</b>를 말하면, 아래에서 <b>줄 자리를 눌러</b> 받을 친구를 고르세요. 앉을 자리는 그대로 두면 돼요. 아무에게도 안 주는 자리는 눌러서 <b>비우기</b>를 하세요.</div>
+    <div><div class="muted small">자리가 여러 개인 학생 (많이 가진 순)</div>
+      ${multi.length ? multi.sort((x, y) => ownedBy(r, y.id).length - ownedBy(r, x.id).length || y.stones - x.stones).map(s => `<div class="row spread" style="padding:6px 0;border-bottom:1px dashed var(--line)"><span><b>${esc(s.name)}</b> <span class="muted small">${ownedBy(r, s.id).length}자리 · 남은 코인 ${s.stones}</span></span>
+        <span class="row" style="gap:6px">${ownedBy(r, s.id).map(x => `<button class="btn sm" data-act="seatClick" data-id="${x.id}">${x.num}번</button>`).join('')}</span></div>`).join('') : '<div class="muted small">모두 정리됐어요</div>'}</div>
+    <div><div class="muted small">자리가 없는 학생 ${none.length}명 · 빈 자리 ${empty.length}개</div>
+      <div class="chips" style="margin-top:6px">${none.map(s => `<span class="pchip">${esc(s.name)}</span>`).join('') || '<span class="muted small">없어요</span>'}</div></div>
+    ${none.length ? `<div class="hint">가위바위보로 순서를 정한 뒤, 자리표의 <b>빈 자리를 눌러</b> 학생을 배정하세요.</div>` : ''}
+    <div class="row"><button class="btn primary big" data-act="finish">자리 배치 완료</button><button class="btn" data-act="toAuction">← 경매로 돌아가기</button></div>`;
+}
+
+function adminDone(r){
+  return `<h3>자리 배치 완료</h3><p class="muted">전광판과 학생 화면에 최종 자리표가 보여요.</p>
+    <div class="row"><button class="btn" data-act="printPage">인쇄</button><button class="btn" data-act="toArrangeBack">← 자리 정리로 돌아가기</button></div>`;
+}
+
+function studentTable(r){
+  const a = r.auction;
+  const rows = studentsOf(r).map(s => {
+    const seats = ownedBy(r, s.id).map(x => x.num).join(', ');
+    let tag = '';
+    if (a && a.stage === 'entry' && a.entrants?.[s.id]) tag = '<span class="pill gold">신청</span>';
+    if (a && a.stage === 'entry' && a.passes?.[s.id]) tag = '<span class="pill gray">안 함</span>';
+    if (a && a.stage === 'bidding' && a.selected?.[s.id]) tag = a.bids?.[s.id] ? '<span class="pill">✔</span>' : '<span class="pill gray">…</span>';
+    return `<tr><td><span title="${s.joined ? '입장함' : '미입장'}" style="color:${s.joined ? 'var(--accent)' : '#ccc'}">●</span> ${esc(s.name)}</td>
+      <td style="white-space:nowrap"><button class="btn sm" data-act="stone" data-id="${s.id}" data-d="-1">−</button> <b>${s.stones}</b> <button class="btn sm" data-act="stone" data-id="${s.id}" data-d="1">+</button></td>
+      <td>${seats || '<span class="muted">-</span>'}</td><td>${tag}</td></tr>`;
+  }).join('');
+  return `<details class="card"><summary style="cursor:pointer;font-weight:700">학생 현황</summary>
+    <table style="margin-top:8px"><thead><tr><th>이름</th><th>남은 코인</th><th>자리</th><th></th></tr></thead><tbody>${rows}</tbody></table></details>`;
+}
+
+function historyCard(r){
+  const h = Object.values(r.history || {}).sort((a, b) => b.t - a.t);
+  if (!h.length) return '';
+  return `<details class="card"><summary style="cursor:pointer;font-weight:700">경매 기록 (${h.length})</summary><div class="log" style="margin-top:8px">
+    ${h.map(x => x.round2 ? `<div><b>지원금 배부</b> <span class="muted">${Object.entries(x.ids || {}).map(([id, g]) => esc(nameOf(r, id)) + ' +' + g).join(', ') || '받은 학생 없음'}</span></div>` : x.revival ? `<div><b>패자부활전</b> <span class="muted">${Object.keys(x.ids || {}).map(id => esc(nameOf(r, id))).join(', ')} +${x.n}개</span></div>` : x.skip ? `<div><b>${x.num}번</b> <span class="muted">참여자 없음 → 보류</span></div>`
+      : `<div><b>${x.num}번</b> ${x.winner ? `→ <b>${esc(nameOf(r, x.winner))}</b> (${x.value}개)` : `<span class="muted">→ 유찰 (${REFUND[x.refund || 'none']})</span>`}
+         <span class="muted small">[${Object.entries(x.bids || {}).sort((p, q) => q[1] - p[1]).map(([id, v]) => esc(nameOf(r, id)) + ' ' + v).concat(Object.keys(x.folds || {}).map(id => esc(nameOf(r, id)) + ' 기권')).join(', ')}]</span></div>`).join('')}
+  </div></details>`;
+}
+
+/* ---------- 관리자 동작 ---------- */
+/* 방 삭제: 이 브라우저가 만든 방만(관리자 토큰 일치) 서버에서 지운다 */
+async function removeRoom(code){
+  const mine = LS.get('seatauction:admin', {});
+  const token = mine[code]?.token;
+  try {
+    const room = await backend.get(code);
+    if (room && token && room.meta?.adminToken === token) await backend.set(code, null);
+  } catch (err){ console.error(err); toast('삭제 실패: ' + err.message); return false; }
+  delete mine[code]; LS.set('seatauction:admin', mine);
+  return true;
+}
+A.deleteRoom = async d => {
+  if (!(await ask(`${d.code}번 방을 삭제할까요?\n학생 입장 정보, 자리표, 경매 기록이 모두 지워지고 되돌릴 수 없어요.`, '삭제하기'))) return;
+  if (await removeRoom(d.code)){
+    toast(`${d.code}번 방을 삭제했어요`);
+    if (S.view === 'home') render(); else location.hash = '#/';
+  }
+};
+A.deleteAll = async () => {
+  const codes = Object.keys(LS.get('seatauction:admin', {}));
+  if (!(await ask(`내가 만든 방 ${codes.length}개를 모두 삭제할까요?\n되돌릴 수 없어요.`, '모두 삭제'))) return;
+  for (const c of codes) await removeRoom(c);
+  toast('모두 삭제했어요'); render();
+};
+A.grantClose = () => { LS.set('seatauction:grantSeen:' + S.code + ':' + getMe(), S.room?.revival?.t || 0); renderOverlay(); };
+A.round2Open = () => { S.modal = { type: 'round2', announce: true }; renderOverlay(); };
+A.round2Announce = () => { if (S.modal?.type === 'round2'){ S.modal.announce = !S.modal.announce; renderOverlay(); } };
+A.round2Go = () => {
+  const r = S.room, m = S.modal; if (m?.type !== 'round2' || r.round2) return;
+  const gains = round2Gains(r).filter(g => g.gain > 0);
+  const t = Date.now(), ids = Object.fromEntries(gains.map(g => [g.id, g.gain]));
+  const patch = { round2: { t, n: bonusN(r), ids }, [`history/h${t}`]: { round2: true, n: bonusN(r), ids, t } };
+  gains.forEach(g => patch[`students/${g.id}/stones`] = g.from + g.gain);
+  if (m.announce) patch.revival = { type: 'round2', t, n: bonusN(r), ids };
+  S.modal = null; renderOverlay(); upd(patch);
+  toast(gains.length ? `지원금 배부! ${gains.length}명에게 코인을 줬어요` : '지원금 배부! (받을 학생이 없었어요)');
+};
+A.reviveOpen = () => {
+  const ids = {}; studentsOf(S.room).filter(s => s.stones <= 0).forEach(s => ids[s.id] = true);
+  S.modal = { type: 'revive', ids, n: 2 }; renderOverlay();
+};
+A.reviveToggle = d => { const m = S.modal; if (m?.type !== 'revive') return; if (m.ids[d.id]) delete m.ids[d.id]; else m.ids[d.id] = true; renderOverlay(); };
+A.reviveN = d => { const m = S.modal; if (m?.type !== 'revive') return; m.n = +d.n; renderOverlay(); };
+A.reviveGo = () => {
+  const m = S.modal, r = S.room; if (m?.type !== 'revive') return;
+  const ids = Object.keys(m.ids).filter(id => r.students[id]);
+  if (!ids.length){ toast('부활시킬 학생을 골라 주세요'); return; }
+  const t = Date.now();
+  const patch = { revival: { t, n: m.n, ids: Object.fromEntries(ids.map(i => [i, true])) }, [`history/h${t}`]: { revival: true, n: m.n, ids: Object.fromEntries(ids.map(i => [i, true])), t } };
+  ids.forEach(id => patch[`students/${id}/stones`] = (r.students[id].stones || 0) + m.n);
+  S.modal = null; renderOverlay(); upd(patch);
+  toast(`${ids.length}명에게 코인 ${m.n}개씩 줬어요`);
+};
+A.toggleSound = () => {
+  if (SND.on && !soundReady()){ audioCtx(); tone(880, 0.12); setTimeout(render, 150); return; }
+  SND.on = !SND.on; LS.set('seatauction:sound', SND.on);
+  if (SND.on){ audioCtx(); tone(880, 0.12); }
+  setTimeout(render, 150);
+};
+A.showQR = () => { S.modal = { type: 'qr' }; renderOverlay(); };
+A.closeModal = () => { S.modal = null; renderOverlay(); };
+A.printPage = () => window.print();
+A.startGame = () => upd({ phase: 'auction' });
+A.toggleBids = () => { S.showBids = !S.showBids; render(); };
+A.stone = d => { const s = S.room.students[d.id]; upd({ [`students/${d.id}/stones`]: Math.max(0, Math.min(99, s.stones + +d.d)) }); };
+A.startAuction = d => {
+  const r = S.room;
+  if (r.auction && r.auction.stage !== 'result'){ toast('진행 중인 경매를 먼저 끝내 주세요'); return; }
+  if (r.seats[d.id].owner){ toast('이미 주인이 있는 자리예요'); return; }
+  S.showBids = false;
+  const sec = entrySecOf(r), now = backend.now();
+  upd({ auction: { seat: d.id, stage: 'entry', startedAt: now, ...(sec ? { openAt: now, deadline: now + sec * 1000 } : {}) } });
+};
+A.addTime = () => {
+  const a = S.room?.auction; if (!a || (a.stage !== 'entry' && a.stage !== 'bidding') || !a.deadline) return;
+  const base = Math.max(a.deadline, backend.now());
+  S.cd.ended = null;
+  upd({ 'auction/deadline': base + 10000, 'auction/openAt': backend.now() });
+};
+A.cancelAuction = async () => { if (await ask('이번 경매를 취소할까요? 걸린 코인은 차감되지 않아요.', '취소하기')) upd({ auction: null }); };
+A.clearAuction = () => upd({ auction: null });
+A.proceed = () => {
+  const r = S.room, a = r.auction;
+  if (!a || a.stage !== 'entry') return;
+  const pool = Object.keys(a.entrants || {}).filter(id => (r.students[id]?.stones || 0) > 0 && (!a.deadline || a.entrants[id] <= a.deadline + 1500));
+  if (!pool.length){
+    upd({ auction: null, [`seats/${a.seat}/status`]: 'skipped', [`history/h${Date.now()}`]: { num: r.seats[a.seat].num, skip: true, t: Date.now() } });
+    return;
+  }
+  const max = r.meta.maxBidders;
+  if (pool.length > max){
+    // 참여자만 먼저 공개하고, 교사가 '추첨하기'를 눌러야 추첨한다
+    upd({ 'auction/stage': 'draw', 'auction/pool': Object.fromEntries(pool.map(i => [i, true])) });
+    return;
+  }
+  upd({
+    'auction/stage': 'bidding',
+    'auction/pool': Object.fromEntries(pool.map(i => [i, true])),
+    'auction/selected': Object.fromEntries(pool.map(i => [i, true])),
+    'auction/drawn': false,
+    ...bidDeadline(r, false),
+  });
+};
+A.draw = () => {
+  const r = S.room, a = r.auction;
+  if (!a || a.stage !== 'draw') return;
+  const pool = Object.keys(a.pool || {});
+  const sel = shuffle(pool).slice(0, r.meta.maxBidders);
+  upd({
+    'auction/stage': 'bidding',
+    'auction/selected': Object.fromEntries(sel.map(i => [i, true])),
+    'auction/drawn': true,
+    'auction/drawAt': Date.now(),
+    ...bidDeadline(r, true),
+  });
+};
+A.reveal = async () => {
+  const r = S.room, a = r.auction;
+  if (!a || a.stage !== 'bidding') return;
+  const sel = Object.keys(a.selected || {});
+  const bids = {};
+  sel.forEach(id => {
+    const v = +a.bids?.[id];
+    if (a.deadline && a.bidAt?.[id] > a.deadline + 1500) return; // 마감 뒤에 바꾼 입찰은 무시
+    if (v > 0) bids[id] = Math.min(v, r.students[id].stones);
+  });
+  sel.forEach(id => { if (a.folds?.[id]) delete bids[id]; });
+  const n = Object.keys(bids).length;
+  const timeUp = a.deadline && !bidOpen(a);
+  const undecided = sel.filter(id => !bids[id] && !a.folds?.[id]);
+  if (undecided.length && !timeUp){
+    if (!(await ask(`아직 코인을 걸지 않은 학생이 있어요 (${undecided.map(id => nameOf(r, id)).join(', ')}).\n이 학생들은 기권(코인 1개 냄)으로 처리하고 결과를 공개할까요?`, '공개하기'))) return;
+  }
+  const cur = S.room.auction; if (!cur || cur.stage !== 'bidding') return;
+  // 기권(직접 누름 + 시간 안에 안 건 학생): 코인 1개를 내고 빠진다
+  const folds = {};
+  sel.forEach(id => { if (!bids[id]) { const fee = Math.min(1, r.students[id]?.stones || 0); folds[id] = fee; } });
+  const d = decide(bids);
+  const patch = { 'auction/stage': 'result', 'auction/result': { bids, folds, winner: d.winner || '', value: d.value } };
+  for (const id in folds) patch[`students/${id}/stones`] = r.students[id].stones - folds[id];
+  // 건 코인은 차감. 모두 겹쳐 유찰되면 방 설정(돌려주지 않음/절반/모두)에 따라 돌려준다.
+  const mode = refundMode(r);
+  for (const id in bids) patch[`students/${id}/stones`] = r.students[id].stones - bids[id] + (d.winner ? 0 : refundOf(mode, bids[id]));
+  if (d.winner){ patch[`seats/${a.seat}/owner`] = d.winner; patch[`seats/${a.seat}/status`] = 'taken'; }
+  else patch[`seats/${a.seat}/status`] = 'failed';
+  patch[`history/h${Date.now()}`] = { num: r.seats[a.seat].num, bids, folds, winner: d.winner || '', value: d.value, refund: mode, t: Date.now() };
+  upd(patch);
+};
+A.toArrange = async () => {
+  const a = S.room.auction;
+  if (a && a.stage !== 'result' && !(await ask('진행 중인 경매가 있어요. 취소하고 자리 정리로 넘어갈까요?', '넘어가기'))) return;
+  if (!a || a.stage === 'result'){ if (!(await ask('경매를 마치고 자리 정리 단계로 넘어갈까요?\n(나중에 다시 경매로 돌아올 수 있어요)', '넘어가기'))) return; }
+  upd({ phase: 'arrange', auction: null });
+};
+A.toAuction = () => upd({ phase: 'auction' });
+A.toArrangeBack = () => upd({ phase: 'arrange' });
+A.finish = async () => {
+  const r = S.room;
+  const none = seatlessOf(r).length, pending = studentsOf(r).filter(s => ownedBy(r, s.id).length >= 2).length;
+  if ((none || pending) && !(await ask(`아직 자리가 없는 학생 ${none}명, 자리를 여러 개 가진 학생 ${pending}명이 있어요.\n그래도 완료할까요?`, '완료하기'))) return;
+  upd({ phase: 'done' });
+};
+A.seatClick = d => {
+  const r = S.room, s = r.seats[d.id];
+  if (S.view !== 'admin') return;
+  if (r.phase === 'auction' && !s.owner){
+    if (r.auction && r.auction.seat === d.id && r.auction.stage !== 'result') return;
+    return A.startAuction(d);
+  }
+  S.modal = { type: 'assign', seat: d.id }; renderOverlay();
+};
+A.assign = d => {
+  const seat = S.modal?.seat; if (!seat) return;
+  const r = S.room;
+  const patch = { [`seats/${seat}/owner`]: d.sid || '', [`seats/${seat}/status`]: d.sid ? 'taken' : 'open' };
+  if (d.sid) patch[`arrange/${d.sid}`] = null;
+  const prev = r.seats[seat].owner; if (prev) patch[`arrange/${prev}`] = null;
+  S.modal = null; renderOverlay(); upd(patch);
+};
+
+/* ============================================================
+   오버레이 (확인창·모달)
+   ============================================================ */
+function renderOverlay(){
+  let h = '';
+  const r = S.room;
+  if (S.modal?.type === 'qr' && r){
+    h += `<div class="modal-bg" data-act="closeModal"><div class="modal stack" data-act="noop" style="text-align:center">
+      <h2>학생 입장</h2>
+      <div>1. 이 주소에 들어가요</div><div><span class="siteurl" style="font-size:20px">${esc(siteURL())}</span></div>
+      <div>2. 방 번호를 입력해요</div><div class="code" style="font-size:48px">${esc(S.code)}</div>
+      <div>3. 내 이름을 골라요</div>
+      <button class="btn" data-act="closeModal">닫기</button></div></div>`;
+  }
+  if (S.modal?.type === 'assign' && r){
+    const s = r.seats[S.modal.seat];
+    const none = seatlessOf(r), others = studentsOf(r).filter(x => ownedBy(r, x.id).length > 0 && x.id !== s.owner);
+    const btn = x => `<button class="btn sm" data-act="assign" data-sid="${x.id}">${esc(x.name)}${ownedBy(r, x.id).length ? ` <span class="muted">(${ownedBy(r, x.id).map(y => y.num).join(',')})</span>` : ''}</button>`;
+    h += `<div class="modal-bg" data-act="closeModal"><div class="modal stack" data-act="noop">
+      <h2>${s.num}번 자리</h2>
+      <div>지금 주인: <b>${s.owner ? esc(nameOf(r, s.owner)) : '없음'}</b></div>
+      <div><div class="muted small">자리 없는 학생</div><div class="row" style="margin-top:6px">${none.map(btn).join('') || '<span class="muted small">없어요</span>'}</div></div>
+      <details><summary class="small muted" style="cursor:pointer">자리 있는 학생에게 주기</summary><div class="row" style="margin-top:6px">${others.map(btn).join('')}</div></details>
+      <div class="row spread">${s.owner ? `<button class="btn danger" data-act="assign" data-sid="">자리 비우기</button>` : '<span></span>'}<button class="btn" data-act="closeModal">닫기</button></div>
+    </div></div>`;
+  }
+  if (S.modal?.type === 'round2' && r){
+    const m = S.modal, gains = round2Gains(r);
+    h += `<div class="modal-bg" data-act="closeModal"><div class="modal stack" data-act="noop">
+      <h2>지원금 배부</h2>
+      <div class="muted">자리가 없는 학생에게 코인 <b>${bonusN(r)}개</b>씩 줘요. 단, ${r.meta.stones}개를 넘지 않게 채워요. 자리가 있는 학생은 받지 않아요.</div>
+      <table><thead><tr><th>자리 없는 학생</th><th>지금</th><th>지원금</th><th>받은 뒤</th></tr></thead><tbody>
+      ${gains.map(g => `<tr class="${g.gain ? '' : 'dup'}"><td>${esc(g.name)}</td><td>${g.from}개</td><td>${g.gain ? '<b>+' + g.gain + '</b>' : '0 (이미 가득)'}</td><td>${g.from + g.gain}개</td></tr>`).join('')}
+      </tbody></table>
+      <label class="row" style="cursor:pointer"><input type="checkbox" data-act="round2Announce" ${m.announce ? 'checked' : ''}> 학생 화면에 "자비로운 선생님이 지원금을 주셨습니다" 창 띄우기 (전광판에도 표시)</label>
+      <div class="muted small">${m.announce ? '학생들 화면에 지원금 창이 뜨고, 전광판에서 팡파르가 울려요(소리가 켜져 있을 때).' : '창 없이 코인만 조용히 늘어나요.'}</div>
+      <div class="row spread"><button class="btn" data-act="closeModal">닫기</button><button class="btn gold big" data-act="round2Go">지원금 배부 ▶</button></div>
+    </div></div>`;
+  }
+  if (S.modal?.type === 'revive' && r){
+    const m = S.modal;
+    const broke = studentsOf(r).filter(s => s.stones <= 0);
+    const others = studentsOf(r).filter(s => s.stones > 0);
+    const chip = s => `<button class="pchip ${m.ids[s.id] ? 'in' : ''}" data-act="reviveToggle" data-id="${s.id}" style="cursor:pointer">${esc(s.name)}${ownedBy(r, s.id).length ? '' : '<span class="ok">자리가 없어요</span>'}</button>`;
+    h += `<div class="modal-bg" data-act="closeModal"><div class="modal stack" data-act="noop">
+      <h2>패자부활전</h2>
+      <div class="muted">코인을 받을 학생을 고르고 개수를 정하세요. 전광판과 학생 화면에 부활 소식이 떠요.</div>
+      <div><div class="muted small">파산한 학생</div><div class="chips" style="margin-top:6px">${broke.map(chip).join('') || '<span class="muted small">없어요</span>'}</div></div>
+      ${others.length ? `<details><summary class="small muted" style="cursor:pointer">코인이 남은 학생에게도 주기</summary><div class="chips" style="margin-top:6px">${others.map(chip).join('')}</div></details>` : ''}
+      <div><div class="muted small">한 명당 줄 코인</div><div class="row" style="margin-top:6px">${[1, 2, 3, 4, 5].map(n => `<button class="btn ${m.n === n ? 'primary' : ''}" data-act="reviveN" data-n="${n}">${n}개</button>`).join('')}</div></div>
+      <div class="row spread"><button class="btn" data-act="closeModal">닫기</button><button class="btn gold big" data-act="reviveGo">${Object.keys(m.ids).length}명 부활시키기 ▶</button></div>
+    </div></div>`;
+  }
+  const gr = r?.revival;
+  if (S.view === 'join' && gr?.type === 'round2' && getMe() && r.students?.[getMe()] && LS.get('seatauction:grantSeen:' + S.code + ':' + getMe(), 0) !== gr.t){
+    const me = getMe(), g = gr.ids?.[me] || 0, now = r.students[me].stones;
+    const why = ownedBy(r, me).length ? '나는 이미 자리가 있어서 이번 지원금은 자리 없는 친구들에게 돌아갔어요.' : '코인이 이미 가득 차 있어서 이번에는 받지 않았어요.';
+    h += `<div class="modal-bg"><div class="modal stack grant" style="text-align:center">
+      <h2>자비로운 선생님이<br>지원금을 주셨습니다.</h2>
+      <div class="praise">찬양하세요.</div>
+      ${g ? `<div>${stonesHTML(g, g, 'xl')}</div><div style="font-size:22px"><b>+${g}코인</b> 지급! <span class="muted">(지금 ${now}코인)</span></div>`
+          : `<div class="muted">${why}</div>`}
+      <button class="btn gold big" data-act="grantClose">찬양합니다!</button>
+    </div></div>`;
+  }
+  if (S.confirm){
+    h += `<div class="modal-bg"><div class="modal stack"><div style="white-space:pre-line;font-size:17px">${esc(S.confirm.msg)}</div>
+      <div class="row" style="justify-content:flex-end"><button class="btn" data-act="confirmNo">아니요</button><button class="btn primary" data-act="confirmYes">${esc(S.confirm.okLabel)}</button></div></div></div>`;
+  }
+  overlay.innerHTML = h;
+}
+
+/* ============================================================
+   전광판 화면 (TV·전자칠판용, 공개 정보만)
+   ============================================================ */
+function renderBoard(){
+  const r = S.room, a = r.auction;
+  let side = '';
+  if (r.phase === 'lobby'){
+    const joined = studentsOf(r).filter(s => s.joined).length;
+    side = `<div class="stack" style="text-align:center"><h2 style="font-size:30px">입장하세요!</h2>
+      <div style="font-size:18px">1. 이 주소에 들어가요</div><div><span class="siteurl" style="font-size:22px">${esc(siteURL())}</span></div>
+      <div style="font-size:18px">2. 방 번호를 입력해요</div><div class="code" style="font-size:64px">${esc(S.code)}</div>
+      <div style="font-size:18px">3. 내 이름을 골라요</div><div class="pill" style="font-size:18px">${joined} / ${studentsOf(r).length}명 입장</div></div>`;
+  } else if (r.phase === 'auction'){
+    if (!a) side = `<div class="stack"><h2>다음 자리를 준비 중이에요</h2><p class="muted">선생님이 경매할 자리를 고르고 있어요.</p></div>`;
+    else {
+      const num = r.seats[a.seat].num;
+      const head = `<div class="stage" style="font-size:20px">${a.stage === 'entry' ? '참여 신청 받는 중' : a.stage === 'draw' ? '추첨을 기다려요' : a.stage === 'bidding' ? '코인을 거세요!' : '결과 발표'}</div><div class="bignum" style="font-size:96px">${num}번</div>`;
+      if (a.stage === 'entry') side = `<div class="stack">${head}${countdownHTML(a, { big: true })}<p style="font-size:22px">이 자리에 앉고 싶은 사람은<br>내 화면에서 <b>참여하기</b>를 누르세요.</p><p class="muted">누가 신청했는지는 비밀이에요.</p></div>`;
+      else if (a.stage === 'draw') side = `<div class="stack">${head}${participantsBlock(r)}</div>`;
+      else if (a.stage === 'bidding'){
+        const sel = Object.keys(a.selected || {}); const done = sel.filter(id => a.bids?.[id] && !a.folds?.[id]).length; const foldN = sel.filter(id => a.folds?.[id]).length;
+        side = `<div class="stack">${head}${participantsBlock(r, { showSubmitted: true })}${Date.now() < S.anim.until ? '' : `${countdownHTML(a, { big: true })}<div class="pill" style="font-size:18px">코인 건 학생 ${done} / ${sel.length}${foldN ? ` · 기권 ${foldN}` : ''}</div>`}</div>`;
+      } else side = `<div class="stack">${head}${resultBlock(r)}</div>`;
+    }
+  } else if (r.phase === 'arrange'){
+    const none = seatlessOf(r);
+    side = `<div class="stack"><h2>자리 정리</h2><p style="font-size:20px">자리를 여러 개 얻은 친구는<br>앉을 자리와 친구에게 줄 자리를<br><b>선생님께 말해 주세요.</b></p>
+      ${none.length ? `<div><div class="muted">자리가 없는 친구</div><div class="chips" style="margin-top:8px">${none.map(s => `<span class="pchip">${esc(s.name)}</span>`).join('')}</div></div>` : ''}</div>`;
+  } else side = `<div class="stack"><h1 style="font-size:40px">자리 배치 완료!</h1><p class="muted" style="font-size:20px">새 자리로 이동하세요.</p></div>`;
+
+  const broke = studentsOf(r).filter(s => s.stones <= 0);
+  const brokeCard = (r.phase === 'auction' || r.phase === 'arrange') && broke.length ? `<div class="card stack" style="margin-top:18px">
+    <div class="row" style="justify-content:center;gap:12px"><h2 style="margin:0;font-size:34px;letter-spacing:.04em">파산핑</h2><span class="pill red" style="font-size:16px">${broke.length}명</span></div>
+    <div class="muted" style="text-align:center">코인을 모두 써 버린 친구들이에요.</div>
+    <div class="chips">${broke.map(s => { const n = ownedBy(r, s.id).length;
+      return `<span class="pchip" style="border-color:${n ? '#b9d8c6' : '#f0c9c4'};background:${n ? 'var(--accent-soft)' : 'var(--red-soft)'}">${esc(s.name)}<span class="ok">${n ? '자리 ' + ownedBy(r, s.id).map(x => x.num).join(',') + '번' : '자리가 없어요'}</span></span>`; }).join('')}</div>
+  </div>` : '';
+  app.innerHTML = `<div class="wrap board" style="max-width:1500px">
+    ${demoNote()}
+    ${revivalBanner(r, { big: true })}
+    <div class="topbar"><h1 style="margin:0">${esc(r.meta.title || '자리 경매')}</h1><div class="row">
+      ${r.phase !== 'lobby' && r.phase !== 'done' ? `<button class="btn sm" data-act="toggleRules">${S.showRules ? '규칙 닫기' : '규칙 보기'}</button>` : ''}
+      <button class="btn sm ${SND.on && !soundReady() ? 'gold' : ''}" data-act="toggleSound">${!SND.on ? '소리 꺼짐' : soundReady() ? '소리 켜짐' : '소리 켜기 (눌러 주세요)'}</button>
+      <span class="muted">방 번호</span><span class="code">${esc(S.code)}</span></div></div>
+    ${r.phase === 'done' ? `<div class="card stack">${side}${seatMap(r, { size: 'big' })}</div>`
+      : `<div class="grid2"><div class="card">${seatMap(r, { size: 'big' })}</div><div class="card">${side}</div></div>`}
+    ${r.phase === 'lobby' || (S.showRules && r.phase !== 'done') ? `<div class="card" style="margin-top:18px">${rulesCard(r, { big: true })}</div>` : ''}
+    ${brokeCard}
+  </div>`;
+}
+
+/* ============================================================
+   학생 화면
+   ============================================================ */
+const meKey = () => 'seatauction:me:' + S.code;
+const getMe = () => SS.get(meKey()) || LS.get(meKey(), null);
+
+function renderStudent(){
+  const r = S.room, me = getMe();
+  if (!me || !r.students?.[me]) return renderNamePick(r);
+  const my = r.students[me];
+  const mySeats = ownedBy(r, me);
+  const total = Math.max(r.meta.stones, my.stones);
+  let main = '';
+  const a = r.auction;
+
+  if (r.phase === 'lobby') main = `<h2>입장 완료!</h2><p class="muted">선생님이 경매를 시작하면 화면이 바뀌어요. 그동안 규칙을 읽어 보세요.</p>${rulesCard(r)}`;
+  else if (r.phase === 'auction'){
+    if (!a) main = `<h2>다음 자리를 기다려요</h2><p class="muted">선생님이 경매할 자리를 고르고 있어요.</p>`;
+    else {
+      const num = r.seats[a.seat].num;
+      const head = `<div class="stage">${a.stage === 'entry' ? '참여 신청' : a.stage === 'draw' ? '추첨 대기' : a.stage === 'bidding' ? '코인 걸기' : '결과'}</div><div class="bignum">${num}번 자리</div>`;
+      if (a.stage === 'entry'){
+        const entered = !!a.entrants?.[me];
+        const passed = !!a.passes?.[me];
+        const open = entryOpen(a);
+        main = `${head}${my.stones > 0 ? countdownHTML(a) : ''}` + (my.stones <= 0
+          ? `<div class="hint">코인이 없어서 경매에 참여할 수 없어요.${mySeats.length ? '' : ' 마지막에 자리를 받을 수 있어요.'}</div>`
+          : entered
+            ? `<div class="hint"><b>참여 신청 완료!</b> 선생님이 경매를 진행하면 참여자가 공개돼요.</div>${open ? '<button class="btn" data-act="toggleEntry">신청 취소</button>' : ''}`
+            : passed
+              ? `<div class="hint"><b>이번 자리는 참가하지 않기로 했어요.</b> 다음 자리를 기다려요.</div>${open ? '<button class="btn" data-act="passEntry">다시 고르기</button>' : ''}`
+              : !open
+              ? `<div class="hint"><b>시간이 끝났어요!</b> 이번 자리는 참가하지 않은 것으로 처리돼요.</div>`
+              : `<p>이 자리에 앉고 싶나요?</p><div class="two"><button class="btn primary big" data-act="toggleEntry">이 자리 경매 참여하기</button><button class="btn red big" data-act="passEntry">참가하지 않기</button></div>`);
+      } else if (a.stage === 'draw'){
+        main = `${head}${participantsBlock(r)}${a.pool?.[me] ? '<div class="hint">나도 신청했어요! 선생님이 곧 추첨해요.</div>' : '<div class="hint">추첨을 지켜보는 중이에요.</div>'}`;
+      } else if (a.stage === 'bidding'){
+        const rolling = Date.now() < S.anim.until;
+        let body = '';
+        if (!rolling){
+          if (a.selected?.[me] && a.folds?.[me]){
+            body = `${countdownHTML(a)}<div class="hint" style="background:var(--red-soft);color:var(--red)"><b>기권했어요.</b> 결과 공개 때 코인 1개를 내고 이번 경매에서 빠져요.</div>`;
+          } else if (a.selected?.[me] && a.deadline && !bidOpen(a)){
+            const mine = a.bids?.[me];
+            body = `${countdownHTML(a)}<div class="hint">${mine ? `<b>시간 끝!</b> 코인 <b>${mine}개</b>를 걸었어요. 결과 공개를 기다려요.` : '<b>시간 끝!</b> 코인을 걸지 않아서 <b>기권</b>으로 처리돼요. 코인 1개를 내요.'}</div>`;
+          } else if (a.selected?.[me]){
+            const mine = a.bids?.[me];
+            body = `<div class="stack">${countdownHTML(a)}<div><b>몇 개의 코인을 걸까요?</b> <span class="muted small">(남은 코인 ${my.stones}개)</span></div>
+              <div class="pad">${Array.from({length: 7}, (_, i) => i + 1).map(n => `<button data-act="bid" data-n="${n}" class="${mine === n ? 'sel' : ''}" ${n > my.stones ? 'disabled' : ''}>${n}</button>`).join('')}</div>
+              ${mine ? `<div class="hint"><b>${mine}개</b>를 걸었어요. 시간이 끝나기 전까지는 바꿀 수 있어요.</div>` : `<div class="hint">다른 친구와 <b>겹치지 않으면서</b> 가장 많이 건 사람이 자리를 가져가요. 시간 안에 안 걸면 기권(코인 1개)이에요.</div>`}
+              <button class="btn red fold" data-act="fold">기권하기 (다이) · 코인 1개 내고 빠지기</button></div>`;
+          } else if (a.pool?.[me]) body = `${countdownHTML(a)}<div class="hint">아쉽게도 추첨에서 뽑히지 않았어요. 코인은 그대로예요.</div>`;
+          else body = `${countdownHTML(a)}<div class="hint">이번 경매를 지켜보는 중이에요.</div>`;
+        }
+        main = `${head}${participantsBlock(r)}${body}`;
+      } else {
+        const b = a.result?.bids?.[me], f = a.result?.folds?.[me];
+        main = `${head}${resultBlock(r)}${f != null && !b ? `<div class="hint" style="background:var(--red-soft);color:var(--red)">기권해서 코인 <b>${f}개</b>를 냈어요.</div>` : ''}${b ? `<div class="hint">${!a.result.winner ? (refundOf(refundMode(r), b) ? `나는 코인 <b>${b}개</b>를 걸었는데, 유찰돼서 <b>${refundOf(refundMode(r), b)}개</b>를 돌려받았어요.` : `나는 코인 <b>${b}개</b>를 걸었는데, 유찰돼서 돌려받지 못했어요.`) : a.result.winner === me ? `코인 <b>${b}개</b>로 자리를 차지했어요. 축하해요!` : `나는 코인 <b>${b}개</b>를 걸었어요. 아쉽지만 코인은 반납했어요.`}</div>` : ''}`;
+      }
+    }
+  } else if (r.phase === 'arrange') main = studentArrange(r, me, mySeats);
+  else main = `<h2>자리 배치 완료!</h2>${mySeats.length ? `<div class="bignum">${mySeats.map(s => s.num).join(', ')}번</div><p>새 자리로 이동하세요.</p>` : `<p class="muted">선생님이 자리를 알려 주실 거예요.</p>`}`;
+
+  app.innerHTML = `<div class="wrap narrow stack">
+    ${demoNote()}
+    <div class="card">
+      <div class="me-head"><div><div class="muted small">${esc(r.meta.title || '자리 경매')} · 방 ${esc(S.code)}</div><h2 style="margin:0">${esc(my.name)}</h2></div>
+        <button class="btn sm" data-act="changeName">이름 바꾸기</button></div>
+      <div class="row" style="margin-top:10px">${stonesHTML(my.stones, total, 'lg')}<span class="muted">남은 코인 <b style="color:var(--ink)">${my.stones}</b>개</span></div>
+      ${mySeats.length ? `<div style="margin-top:8px">내 자리: ${mySeats.map(s => `<span class="pill">${s.num}번</span>`).join(' ')}</div>` : ''}
+      ${myTries(r, me)}
+    </div>
+    <div class="card stack">${revivalBanner(r, { me })}${main}</div>
+    ${r.phase !== 'lobby' && r.phase !== 'done' ? `<details class="card"><summary style="cursor:pointer;font-weight:700">게임 규칙 보기</summary><div style="margin-top:10px">${rulesCard(r)}</div></details>` : ''}
+    <details class="card" ${r.phase === 'done' ? 'open' : ''}><summary style="cursor:pointer;font-weight:700">자리표 보기</summary><div style="margin-top:10px">${seatMap(r, { me, size: 'small' })}</div></details>
+  </div>`;
+}
+
+/* 내가 도전했던 자리 기록 */
+function myTries(r, me){
+  const h = Object.values(r.history || {}).filter(x => x.bids?.[me] || x.folds?.[me] != null).sort((a, b) => a.t - b.t);
+  if (!h.length) return '';
+  return `<div style="margin-top:10px"><div class="muted small">내가 도전한 자리</div><div class="row" style="margin-top:4px;gap:6px">
+    ${h.map(x => {
+      if (!x.bids?.[me]) return `<span class="pill red">${x.num}번 · 기권 · 코인 ${x.folds[me]}개 냄</span>`;
+      const b = x.bids[me];
+      const [cls, txt] = x.winner === me ? ['', '낙찰'] : !x.winner ? ['gray', refundOf(x.refund || 'none', b) ? `유찰·${refundOf(x.refund || 'none', b)}개 반환` : '유찰'] : ['red', '실패'];
+      return `<span class="pill ${cls}">${x.num}번 · 코인 ${b}개 · ${txt}</span>`;
+    }).join('')}</div></div>`;
+}
+
+function studentArrange(r, me, mySeats){
+  if (mySeats.length === 0) return `<h2>자리 정리 중</h2><div class="hint">자리를 여러 개 얻은 친구가 선생님께 누구에게 자리를 줄지 말하고 있어요. 끝까지 자리가 없으면 가위바위보로 남은 자리를 골라요.</div>`;
+  if (mySeats.length === 1) return `<h2>내 자리는 ${mySeats[0].num}번</h2><p class="muted">다른 친구들이 정리할 때까지 기다려요.</p>`;
+  return `<h2>자리를 ${mySeats.length}개 얻었어요!</h2>
+    <div class="row">${mySeats.map(s => `<span class="pill gold" style="font-size:18px">${s.num}번</span>`).join('')}</div>
+    <div class="hint">선생님이 부르면 <b>① 내가 앉을 자리</b>와 <b>② 나머지 자리를 누구에게 줄지</b> 말로 알려 주세요. 선생님이 정리해 주실 거예요.</div>`;
+}
+
+function renderNamePick(r){
+  const list = studentsOf(r);
+  app.innerHTML = `<div class="wrap narrow stack">
+    ${demoNote()}
+    <div><div class="muted">${esc(r.meta.title || '자리 경매')} · 방 ${esc(S.code)}</div><h1>내 이름을 고르세요</h1></div>
+    <div class="names">${list.map(s => `<button data-act="pickName" data-id="${s.id}">${esc(s.name)}${s.joined ? '<small>입장함</small>' : ''}</button>`).join('')}</div>
+    <a class="btn" href="#/">처음으로</a>
+  </div>`;
+}
+
+/* ---------- 학생 동작 ---------- */
+A.pickName = async d => {
+  const s = S.room.students[d.id];
+  if (s.joined && !(await ask(`${s.name}(으)로 이미 누군가 입장했어요.\n정말 ${s.name}이(가) 맞나요?`, '맞아요'))) return;
+  SS.set(meKey(), d.id); LS.set(meKey(), d.id);
+  upd({ [`students/${d.id}/joined`]: Date.now() });
+  render();
+};
+A.changeName = async () => {
+  if (!(await ask('이름 선택 화면으로 돌아갈까요?', '돌아가기'))) return;
+  SS.del(meKey()); try { localStorage.removeItem(meKey()); } catch {}
+  render();
+};
+A.toggleEntry = () => {
+  const r = S.room, a = r.auction, me = getMe();
+  if (!a || a.stage !== 'entry') return;
+  if (!entryOpen(a)){ toast('신청 시간이 끝났어요'); render(); return; }
+  if (r.students[me].stones <= 0) return;
+  upd({ [`auction/entrants/${me}`]: a.entrants?.[me] ? null : backend.now(), [`auction/passes/${me}`]: null });
+};
+A.passEntry = () => {
+  const r = S.room, a = r.auction, me = getMe();
+  if (!a || a.stage !== 'entry') return;
+  if (!entryOpen(a)){ toast('신청 시간이 끝났어요'); render(); return; }
+  upd({ [`auction/passes/${me}`]: a.passes?.[me] ? null : backend.now(), [`auction/entrants/${me}`]: null });
+};
+A.bid = d => {
+  const r = S.room, a = r.auction, me = getMe(), n = +d.n;
+  if (!a || a.stage !== 'bidding' || !a.selected?.[me] || a.folds?.[me]) return;
+  if (a.deadline && !bidOpen(a)){ toast('코인 거는 시간이 끝났어요'); render(); return; }
+  if (n < 1 || n > r.students[me].stones) return;
+  upd({ [`auction/bids/${me}`]: n, [`auction/bidAt/${me}`]: backend.now() });
+};
+A.fold = async () => {
+  const a = S.room?.auction, me = getMe();
+  if (!a || a.stage !== 'bidding' || !a.selected?.[me] || a.folds?.[me]) return;
+  if (a.deadline && !bidOpen(a)){ toast('시간이 끝났어요'); render(); return; }
+  if (!(await ask('정말 기권할까요?\n코인 1개를 내고 이번 경매에서 빠져요. 되돌릴 수 없어요.', '기권하기'))) return;
+  const cur = S.room?.auction; if (!cur || cur.stage !== 'bidding' || (cur.deadline && !bidOpen(cur))) return;
+  upd({ [`auction/folds/${me}`]: backend.now(), [`auction/bids/${me}`]: null });
+};
+
+route();
+</script>
+</body>
+</html>
